@@ -39,11 +39,18 @@ public class PulseKafkaRecordInterceptor implements RecordInterceptor<Object, Ob
     private final Map<String, String> headerToMdcKey;
     private final String timeoutBudgetHeader;
     private final boolean timeoutBudgetEnabled;
+    private final @Nullable KafkaConsumerTimeLagMetrics timeLagMetrics;
 
     public PulseKafkaRecordInterceptor(PulseProperties properties) {
+        this(properties, null);
+    }
+
+    public PulseKafkaRecordInterceptor(
+            PulseProperties properties, @Nullable KafkaConsumerTimeLagMetrics timeLagMetrics) {
         this.headerToMdcKey = HeaderPropagation.headerToMdcKey(properties.context(), properties.retry());
         this.timeoutBudgetHeader = properties.timeoutBudget().outboundHeader();
         this.timeoutBudgetEnabled = properties.timeoutBudget().enabled();
+        this.timeLagMetrics = timeLagMetrics;
     }
 
     @Override
@@ -64,6 +71,16 @@ public class PulseKafkaRecordInterceptor implements RecordInterceptor<Object, Ob
                 if (budgetHeader != null && budgetHeader.value() != null) {
                     activateBudgetScope(new String(budgetHeader.value(), StandardCharsets.UTF_8));
                 }
+            }
+
+            if (timeLagMetrics != null) {
+                String groupId;
+                try {
+                    groupId = consumer.groupMetadata().groupId();
+                } catch (RuntimeException ignored) {
+                    groupId = KafkaConsumerTimeLagMetrics.UNKNOWN_GROUP;
+                }
+                timeLagMetrics.observe(record, groupId);
             }
         } catch (RuntimeException e) {
             log.debug("Pulse Kafka record interceptor: header hydration failed", e);

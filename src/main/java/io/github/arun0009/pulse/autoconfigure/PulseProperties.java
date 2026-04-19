@@ -106,8 +106,27 @@ public record PulseProperties(
             @DefaultValue("pulse-") String threadNamePrefix,
             @DefaultValue("true") boolean scheduledPropagationEnabled) {}
 
-    /** Kafka producer/consumer interceptor registration. */
-    public record Kafka(@DefaultValue("true") boolean propagationEnabled) {}
+    /**
+     * Kafka producer/consumer integration.
+     *
+     * <p>{@link #propagationEnabled()} controls registration of Pulse's producer/consumer record
+     * interceptors that mirror MDC + timeout-budget + retry-depth onto record headers (and back
+     * out on the consumer side).
+     *
+     * <p>{@link #consumerTimeLagEnabled()} turns on the time-based consumer-lag gauge. Kafka's
+     * native lag metric is reported in <em>messages</em>, which is meaningless without knowing
+     * the production rate ("you're 50,000 messages behind" is fine for a high-volume topic and
+     * a disaster for a low-volume one). Pulse measures
+     * {@code now() - record.timestamp()} for every record processed and exposes it as the
+     * {@code pulse.kafka.consumer.time_lag_seconds{topic, partition, group}} gauge. This is the
+     * SLO operators actually want: "the oldest unprocessed message is 47 seconds old".
+     *
+     * <p>Cardinality is bounded by the {@code (topic, partition, group)} fan-out of <em>this
+     * consumer</em>, which is intrinsically capped by Kafka's partition assignment.
+     */
+    public record Kafka(
+            @DefaultValue("true") boolean propagationEnabled,
+            @DefaultValue("true") boolean consumerTimeLagEnabled) {}
 
     /** RFC 7807 ProblemDetail responses with traceId + requestId surfaced. */
     public record ExceptionHandler(@DefaultValue("true") boolean enabled) {}

@@ -116,7 +116,7 @@ class PulseKafkaRecordInterceptorTest {
                 new PulseProperties.TraceGuard(true, false, List.of()),
                 new PulseProperties.Sampling(1.0, true),
                 new PulseProperties.Async(true, false, 8, 32, 100, "pulse-", true),
-                new PulseProperties.Kafka(true),
+                new PulseProperties.Kafka(true, true),
                 new PulseProperties.ExceptionHandler(true),
                 new PulseProperties.Audit(true),
                 new PulseProperties.Cardinality(true, 1000, "OVERFLOW", List.of(), List.of()),

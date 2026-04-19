@@ -152,6 +152,7 @@ public final class PulseDiagnostics {
         boolean kafkaWired = KafkaPropagationContext.initialized();
         Map<String, Object> kafkaDetails = new LinkedHashMap<>();
         kafkaDetails.put("classpathPresent", kafkaWired);
+        kafkaDetails.put("consumerTimeLagEnabled", properties.kafka().consumerTimeLagEnabled());
         kafkaDetails.put(
                 "status",
                 kafkaConfigured ? (kafkaWired ? "active" : "off (spring-kafka not on classpath)") : "disabled");

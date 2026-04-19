@@ -326,6 +326,27 @@ groups:
       # pulse.retry.amplification-threshold (default 3), Pulse increments
       # pulse.retry.amplification_total. A single hit is an early-warning
       # sign of a forming cascade; >5% of traffic is the cascade itself.
+      # ── Kafka time-based consumer lag ────────────────────────────────
+      # Count-based lag is meaningless without producer rate; time-based lag
+      # is what your SLO actually wants ("oldest unprocessed message is N
+      # seconds old"). Alert at 5m to catch real backlog without paging on
+      # routine catchup after a deploy.
+      - alert: PulseKafkaConsumerFallingBehind
+        expr: |
+          max(pulse_kafka_consumer_time_lag_seconds) by (application, group, topic) > 300
+        for: 5m
+        labels:
+          severity: page
+          slo: freshness
+          subsystem: kafka
+        annotations:
+          summary: "{{ $labels.application }}: kafka consumer {{ $labels.group }} lagging on {{ $labels.topic }}"
+          description: |
+            Consumer group {{ $labels.group }} is processing records that
+            are {{ printf "%.0f" $value }}s old on topic {{ $labels.topic }}.
+            Check consumer throughput, partition skew, or stuck listener
+            threads.
+
       # ── Container memory (cgroup) ────────────────────────────────────
       # JVM heap dashboards lie in containers. The kernel kills based on
       # cgroup RSS (heap + off-heap + native + JIT + metaspace + threads).
