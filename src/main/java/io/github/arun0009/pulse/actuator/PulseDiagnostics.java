@@ -43,27 +43,6 @@ public final class PulseDiagnostics {
         this.jobRegistry = jobRegistry;
     }
 
-    /** Backward-compatible constructor pre-jobs. */
-    public PulseDiagnostics(
-            PulseProperties properties,
-            String serviceName,
-            String environment,
-            String version,
-            @Nullable CardinalityFirewall cardinalityFirewall,
-            @Nullable SloProjector sloProjector) {
-        this(properties, serviceName, environment, version, cardinalityFirewall, sloProjector, null);
-    }
-
-    /** Backward-compatible constructor without SLO projection. */
-    public PulseDiagnostics(
-            PulseProperties properties,
-            String serviceName,
-            String environment,
-            String version,
-            @Nullable CardinalityFirewall cardinalityFirewall) {
-        this(properties, serviceName, environment, version, cardinalityFirewall, null, null);
-    }
-
     public Map<String, Object> snapshot() {
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("pulse.version", version);

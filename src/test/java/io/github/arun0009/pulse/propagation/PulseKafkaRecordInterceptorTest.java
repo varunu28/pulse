@@ -156,6 +156,8 @@ class PulseKafkaRecordInterceptorTest {
                         List.of()),
                 new PulseProperties.Retry(true, "Pulse-Retry-Depth", 3),
                 new PulseProperties.Priority(true, "Pulse-Priority", "normal", true, List.of()),
-                new PulseProperties.ContainerMemory(true, true, 0.10, "/sys/fs/cgroup"));
+                new PulseProperties.ContainerMemory(true, true, 0.10, "/sys/fs/cgroup"),
+                new PulseProperties.OpenFeature(true),
+                new PulseProperties.Cache(new PulseProperties.Cache.Caffeine(true)));
     }
 }
