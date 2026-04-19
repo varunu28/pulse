@@ -1,6 +1,6 @@
-# Multi-tenant context — design notes (0.3.0)
+# Multi-tenant context — design notes
 
-> Status: accepted (this document). Implementation lands in the same release.
+> Status: shipped in 1.0. Implementation lives under `io.github.arun0009.pulse.tenant`.
 
 ## Problem
 

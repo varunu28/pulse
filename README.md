@@ -503,6 +503,7 @@ The full surface is documented in `PulseProperties` and exposed live at
 | [`docs/runbooks/cardinality-firewall-overflow.md`](docs/runbooks/cardinality-firewall-overflow.md) | Runbook for the cardinality alert |
 | [`docs/runbooks/timeout-budget-exhausted.md`](docs/runbooks/timeout-budget-exhausted.md) | Runbook for the timeout alert |
 | [`docs/runbooks/trace-context-missing.md`](docs/runbooks/trace-context-missing.md) | Runbook for the propagation alert |
+| [`docs/runbooks/hikaricp-saturation.md`](docs/runbooks/hikaricp-saturation.md) | Runbook for HikariCP pool saturation |
 | [`docs/production-checklist.md`](docs/production-checklist.md) | Pre-cutover checklist (MUST / SHOULD / NICE) |
 | [`deploy/local-stack/`](deploy/local-stack/) | One-command Collector + Prometheus + Grafana + Jaeger + Loki |
 
