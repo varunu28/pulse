@@ -68,7 +68,8 @@ public class KafkaPropagationConfiguration {
          * inject it explicitly (for composition with their own custom interceptor wiring). When a
          * {@link MeterRegistry} is on the context and {@code pulse.kafka.consumer-time-lag-enabled}
          * is true (default), the interceptor also samples per-record time lag and exposes it as
-         * the {@code pulse.kafka.consumer.time_lag_seconds} gauge.
+         * the {@code pulse.kafka.consumer.time_lag} gauge (registered with base unit {@code seconds},
+         * so Prometheus normalises it to {@code pulse_kafka_consumer_time_lag_seconds}).
          */
         @Bean
         public PulseKafkaRecordInterceptor pulseKafkaRecordInterceptor(

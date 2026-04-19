@@ -27,7 +27,7 @@ fork — just Spring Boot auto-configuration on top of OpenTelemetry and Microme
 	and a `pulse.cardinality.overflow` counter so blown dimensions are visible, not silent.
 - **Timeout-budget propagation** — inbound `Pulse-Timeout-Ms` header is parsed, baggage-stored,
 	and deducted on every outbound hop. Exhaustion increments
-	`pulse.timeout-budget.exhausted` and (for `critical` priority requests) logs at `ERROR`.
+	`pulse.timeout_budget.exhausted` and (for `critical` priority requests) logs at `ERROR`.
 - **Trace-guard filter** — counter on inbound requests missing W3C trace context.
 - **`PulseTaskDecorator`** — propagates MDC + OTel context across `@Async`,
 	`CompletableFuture`, `@Scheduled`, virtual threads.

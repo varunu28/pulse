@@ -115,7 +115,7 @@ default — which means it can fail-fast instead of holding a connection open
 for the platform's 30 s default while the caller has already given up.
 
 When the budget is exhausted *before* an outbound call fires, Pulse
-increments `pulse.timeout-budget.exhausted{transport}` so retry-storm
+increments `pulse.timeout_budget.exhausted{transport}` so retry-storm
 precursors are visible *before* they become incidents. See
 [`docs/runbooks/timeout-budget-exhausted.md`](docs/runbooks/timeout-budget-exhausted.md).
 

@@ -6,7 +6,7 @@
 
 ## TL;DR
 
-`pulse.timeout.budget.exhausted` is firing because outbound calls are leaving this service with
+`pulse.timeout_budget.exhausted` is firing because outbound calls are leaving this service with
 **zero remaining budget**. The upstream caller's deadline had already passed when this hop tried
 to call its downstream — every subsequent call is wasted work.
 

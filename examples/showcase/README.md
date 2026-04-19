@@ -64,7 +64,7 @@ After `make all`, browse the live dashboard:
 curl -s http://localhost:8080/actuator/metrics/orders.placed | jq '.availableTags'
 
 # Counter that increments every time a downstream call hits exhausted budget
-curl -s http://localhost:8080/actuator/metrics/pulse.timeout-budget.exhausted | jq .
+curl -s http://localhost:8080/actuator/metrics/pulse.timeout_budget.exhausted | jq .
 ```
 
 ## What's running

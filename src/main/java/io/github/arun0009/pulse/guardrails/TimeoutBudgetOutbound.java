@@ -12,7 +12,7 @@ import java.util.Optional;
 
 /**
  * Helper consumed by every Pulse outbound interceptor (RestTemplate, RestClient, WebClient, OkHttp,
- * Kafka producer) so the {@code pulse.timeout-budget.exhausted} counter is incremented in exactly
+ * Kafka producer) so the {@code pulse.timeout_budget.exhausted} counter is incremented in exactly
  * the same way regardless of transport.
  *
  * <p>The counter is registered lazily and tagged with {@code transport} so dashboards can show
@@ -23,7 +23,7 @@ import java.util.Optional;
  */
 public final class TimeoutBudgetOutbound {
 
-    public static final String EXHAUSTED_COUNTER = "pulse.timeout-budget.exhausted";
+    public static final String EXHAUSTED_COUNTER = "pulse.timeout_budget.exhausted";
 
     private static final Logger log = LoggerFactory.getLogger(TimeoutBudgetOutbound.class);
 

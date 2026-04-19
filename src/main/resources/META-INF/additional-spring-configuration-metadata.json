@@ -116,7 +116,7 @@
     },
     {
       "name": "pulse.timeout-budget.minimum-budget",
-      "description": "Floor for the propagated budget. If the remaining budget falls below this value, Pulse increments pulse.timeout.budget.exhausted{transport=…} and propagates the floor anyway so the downstream call still gets a sane deadline."
+      "description": "Floor for the propagated budget. If the remaining budget falls below this value, Pulse increments pulse.timeout_budget.exhausted{transport=…} and propagates the floor anyway so the downstream call still gets a sane deadline."
     },
     {
       "name": "pulse.histograms.slo-buckets",
