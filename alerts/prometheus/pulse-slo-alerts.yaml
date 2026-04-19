@@ -326,6 +326,26 @@ groups:
       # pulse.retry.amplification-threshold (default 3), Pulse increments
       # pulse.retry.amplification_total. A single hit is an early-warning
       # sign of a forming cascade; >5% of traffic is the cascade itself.
+      # ── Fleet config drift ───────────────────────────────────────────
+      # When two replicas of the same service report different pulse_config_hash
+      # values, one of them resolved configuration differently — stale ConfigMap,
+      # partial deploy, env-var typo on one pod. This catches a class of issues
+      # that are invisible until they cause incidents.
+      - alert: PulseConfigDrift
+        expr: |
+          count by (application) (count by (application, hash) (pulse_config_hash)) > 1
+        for: 10m
+        labels:
+          severity: ticket
+          slo: consistency
+          subsystem: fleet
+        annotations:
+          summary: "{{ $labels.application }}: replicas disagree on resolved pulse.* config"
+          description: |
+            Multiple distinct pulse.* configuration hashes are reporting for
+            {{ $labels.application }}. Compare /actuator/pulse/config-hash on
+            two pods to find the divergent property.
+
       # ── Kafka time-based consumer lag ────────────────────────────────
       # Count-based lag is meaningless without producer rate; time-based lag
       # is what your SLO actually wants ("oldest unprocessed message is N

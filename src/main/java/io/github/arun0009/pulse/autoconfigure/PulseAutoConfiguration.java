@@ -7,6 +7,8 @@ import io.github.arun0009.pulse.container.PulseContainerMemoryConfiguration;
 import io.github.arun0009.pulse.db.PulseDbConfiguration;
 import io.github.arun0009.pulse.dependencies.PulseDependenciesConfiguration;
 import io.github.arun0009.pulse.events.SpanEvents;
+import io.github.arun0009.pulse.fleet.ConfigHashGauge;
+import io.github.arun0009.pulse.fleet.ConfigHasher;
 import io.github.arun0009.pulse.guardrails.CardinalityFirewall;
 import io.github.arun0009.pulse.guardrails.SamplingConfiguration;
 import io.github.arun0009.pulse.health.OtelExporterHealthIndicator;
@@ -178,6 +180,14 @@ public class PulseAutoConfiguration {
                 cardinalityFirewall.getIfAvailable(),
                 sloProjector.getIfAvailable(),
                 jobRegistry.getIfAvailable());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ConfigHashGauge pulseConfigHashGauge(PulseDiagnostics diagnostics, MeterRegistry registry) {
+        ConfigHashGauge gauge = new ConfigHashGauge(registry, ConfigHasher.hash(diagnostics.effectiveConfig()));
+        gauge.register();
+        return gauge;
     }
 
     @Bean
