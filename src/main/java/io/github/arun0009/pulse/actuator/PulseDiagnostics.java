@@ -100,6 +100,7 @@ public final class PulseDiagnostics {
         pulse.put("dependencies", properties.dependencies());
         pulse.put("tenant", properties.tenant());
         pulse.put("retry", properties.retry());
+        pulse.put("containerMemory", properties.containerMemory());
         return Map.of("pulse", pulse);
     }
 
@@ -278,6 +279,16 @@ public final class PulseDiagnostics {
                         Map.of(
                                 "headerName", properties.retry().headerName(),
                                 "amplificationThreshold", properties.retry().amplificationThreshold())));
+        map.put(
+                "containerMemory",
+                entry(
+                        properties.containerMemory().enabled(),
+                        Map.of(
+                                "healthIndicatorEnabled",
+                                        properties.containerMemory().healthIndicatorEnabled(),
+                                "headroomCriticalRatio",
+                                        properties.containerMemory().headroomCriticalRatio(),
+                                "cgroupRoot", properties.containerMemory().cgroupRoot())));
         return map;
     }
 

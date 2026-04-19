@@ -149,6 +149,7 @@ class PulseKafkaRecordInterceptorTest {
                         "__overflow__",
                         "unknown",
                         List.of()),
-                new PulseProperties.Retry(true, "X-Pulse-Retry-Depth", 3));
+                new PulseProperties.Retry(true, "X-Pulse-Retry-Depth", 3),
+                new PulseProperties.ContainerMemory(true, true, 0.10, "/sys/fs/cgroup"));
     }
 }

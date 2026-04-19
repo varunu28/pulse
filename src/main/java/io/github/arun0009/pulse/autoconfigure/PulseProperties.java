@@ -48,7 +48,8 @@ public record PulseProperties(
         @DefaultValue Profiling profiling,
         @DefaultValue Dependencies dependencies,
         @DefaultValue Tenant tenant,
-        @DefaultValue Retry retry) {
+        @DefaultValue Retry retry,
+        @DefaultValue ContainerMemory containerMemory) {
 
     /** MDC enrichment from the inbound HTTP request. */
     public record Context(
@@ -427,4 +428,35 @@ public record PulseProperties(
             @DefaultValue("true") boolean enabled,
             @DefaultValue("X-Pulse-Retry-Depth") String headerName,
             @DefaultValue("3") int amplificationThreshold) {}
+
+    /**
+     * Container memory observability — fills the JVM-vs-cgroup blind spot that bites every team
+     * that has ever Googled "OOMKilled but heap looks fine."
+     *
+     * <p>Micrometer's {@code jvm.memory.*} reports heap and non-heap, but the kernel kills your
+     * pod based on RSS measured against the cgroup limit, which includes off-heap allocations
+     * (direct buffers, native libraries, JIT, metaspace, threads). Pulse reads
+     * {@code memory.current}/{@code memory.max} (cgroup v2) or
+     * {@code memory.usage_in_bytes}/{@code memory.limit_in_bytes} (cgroup v1) and exposes:
+     *
+     * <ul>
+     *   <li>{@code pulse.container.memory.used_bytes} — current RSS as the kernel sees it.
+     *   <li>{@code pulse.container.memory.limit_bytes} — the cgroup's hard memory limit.
+     *   <li>{@code pulse.container.memory.headroom_ratio} — {@code 1 - used/limit}, the value
+     *       your runbook actually wants.
+     *   <li>{@code pulse.container.memory.oom_kills_total} — counter sourced from
+     *       {@code memory.events}/{@code memory.oom_control}; a non-zero rate means a sibling
+     *       cgroup got killed under the same controller.
+     * </ul>
+     *
+     * <p>Resolution is best-effort: on macOS / Windows / non-cgroup hosts the reader returns
+     * empty values and Pulse silently registers no gauges, so the same starter works on a
+     * developer laptop and in a Kubernetes pod. {@link #headroomCriticalRatio()} is the value
+     * the optional health indicator uses to switch from {@code UP} to {@code OUT_OF_SERVICE}.
+     */
+    public record ContainerMemory(
+            @DefaultValue("true") boolean enabled,
+            @DefaultValue("true") boolean healthIndicatorEnabled,
+            @DefaultValue("0.10") double headroomCriticalRatio,
+            @DefaultValue("/sys/fs/cgroup") String cgroupRoot) {}
 }

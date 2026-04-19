@@ -326,6 +326,43 @@ groups:
       # pulse.retry.amplification-threshold (default 3), Pulse increments
       # pulse.retry.amplification_total. A single hit is an early-warning
       # sign of a forming cascade; >5% of traffic is the cascade itself.
+      # ── Container memory (cgroup) ────────────────────────────────────
+      # JVM heap dashboards lie in containers. The kernel kills based on
+      # cgroup RSS (heap + off-heap + native + JIT + metaspace + threads).
+      # When pulse.container.memory.headroom_ratio drops below 10%, an OOM
+      # is one allocation away.
+      - alert: PulseContainerMemoryLowHeadroom
+        expr: |
+          pulse_container_memory_headroom_ratio < 0.10
+        for: 5m
+        labels:
+          severity: page
+          slo: saturation
+          subsystem: container
+        annotations:
+          summary: "{{ $labels.application }}: container memory headroom <10%"
+          description: |
+            cgroup memory headroom is {{ printf "%.1f%%" (mul $value 100) }} on
+            {{ $labels.instance }}. The kernel will OOM-kill the JVM at zero;
+            check off-heap allocations (direct buffers, native libs, metaspace)
+            in addition to heap.
+          runbook_url: "https://github.com/arun0009/pulse/blob/main/docs/runbooks/container-memory-headroom.md"
+
+      - alert: PulseContainerMemoryOomKill
+        expr: |
+          increase(pulse_container_memory_oom_kills_total[10m]) > 0
+        for: 0m
+        labels:
+          severity: page
+          slo: availability
+          subsystem: container
+        annotations:
+          summary: "{{ $labels.application }}: cgroup OOM-kill observed"
+          description: |
+            The kernel has OOM-killed at least one process in this cgroup
+            hierarchy in the last 10m. Investigate immediately — the JVM
+            itself may be the next victim.
+
       - alert: PulseRetryAmplification
         expr: |
           sum by (application, env, endpoint)
