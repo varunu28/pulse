@@ -41,7 +41,7 @@ public class PulseKafkaRecordInterceptor implements RecordInterceptor<Object, Ob
     private final boolean timeoutBudgetEnabled;
 
     public PulseKafkaRecordInterceptor(PulseProperties properties) {
-        this.headerToMdcKey = HeaderPropagation.headerToMdcKey(properties.context());
+        this.headerToMdcKey = HeaderPropagation.headerToMdcKey(properties.context(), properties.retry());
         this.timeoutBudgetHeader = properties.timeoutBudget().outboundHeader();
         this.timeoutBudgetEnabled = properties.timeoutBudget().enabled();
     }

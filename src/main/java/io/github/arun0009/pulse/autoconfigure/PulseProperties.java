@@ -47,7 +47,8 @@ public record PulseProperties(
         @DefaultValue Resilience resilience,
         @DefaultValue Profiling profiling,
         @DefaultValue Dependencies dependencies,
-        @DefaultValue Tenant tenant) {
+        @DefaultValue Tenant tenant,
+        @DefaultValue Retry retry) {
 
     /** MDC enrichment from the inbound HTTP request. */
     public record Context(
@@ -404,4 +405,26 @@ public record PulseProperties(
                 @DefaultValue("false") boolean enabled,
                 @DefaultValue("0") int index) {}
     }
+
+    /**
+     * Retry amplification detection — propagates a hop counter through the call chain so
+     * Pulse can detect "service A retries 3x → B retries 3x → C gets 9x its normal traffic"
+     * cascades <em>before</em> they become an outage.
+     *
+     * <p>The depth is carried over the wire as the {@link #headerName()} header (default
+     * {@code X-Pulse-Retry-Depth}) and on MDC under the {@code retryDepth} key, so every
+     * log line participating in an amplified chain is tagged. Each Resilience4j retry
+     * attempt observed by Pulse increments the local depth by 1; outbound HTTP/Kafka
+     * propagation re-emits the current depth so the next hop inherits it.
+     *
+     * <p>When the inbound depth exceeds {@link #amplificationThreshold()} (default {@code 3}),
+     * Pulse increments {@code pulse.retry.amplification_total{endpoint}}, adds a span event
+     * {@code pulse.retry.amplification}, and logs at WARN. The combination of timeout-budget
+     * propagation + retry depth gives operators the two leading indicators of cascading
+     * failure in one starter.
+     */
+    public record Retry(
+            @DefaultValue("true") boolean enabled,
+            @DefaultValue("X-Pulse-Retry-Depth") String headerName,
+            @DefaultValue("3") int amplificationThreshold) {}
 }

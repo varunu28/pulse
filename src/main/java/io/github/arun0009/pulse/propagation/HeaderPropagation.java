@@ -27,4 +27,18 @@ public final class HeaderPropagation {
         map.put(config.idempotencyKeyHeader(), ContextKeys.IDEMPOTENCY_KEY);
         return map;
     }
+
+    /**
+     * Same as {@link #headerToMdcKey(PulseProperties.Context)} but additionally registers the
+     * retry-amplification header so {@code retryDepth} on MDC is mirrored downstream. The retry
+     * config is opt-out via {@code pulse.retry.enabled=false}, so transports that always pass it
+     * here remain backwards-compatible.
+     */
+    public static Map<String, String> headerToMdcKey(PulseProperties.Context config, PulseProperties.Retry retry) {
+        Map<String, String> map = headerToMdcKey(config);
+        if (retry != null && retry.enabled()) {
+            map.put(retry.headerName(), ContextKeys.RETRY_DEPTH);
+        }
+        return map;
+    }
 }

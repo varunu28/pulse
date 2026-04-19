@@ -28,6 +28,16 @@ public final class ContextKeys {
      */
     public static final String IDEMPOTENCY_KEY = "idempotencyKey";
 
+    /**
+     * Cross-service retry-amplification counter. Seeded from the inbound
+     * {@code X-Pulse-Retry-Depth} header (or whatever {@code pulse.retry.header-name} resolves
+     * to), bumped by every Resilience4j retry attempt observed by Pulse, and re-emitted on
+     * outbound HTTP/Kafka calls so the next hop inherits it. When the inbound depth crosses
+     * {@code pulse.retry.amplification-threshold}, Pulse emits an amplification metric, span
+     * event, and WARN log.
+     */
+    public static final String RETRY_DEPTH = "retryDepth";
+
     public static final String TRACE_ID = "traceId";
     public static final String SPAN_ID = "spanId";
 

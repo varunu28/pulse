@@ -43,4 +43,26 @@ class HeaderPropagationTest {
                 .doesNotContainKey("Idempotency-Key")
                 .containsEntry("X-Idempotency-Key", ContextKeys.IDEMPOTENCY_KEY);
     }
+
+    @Test
+    void retry_overload_adds_amplification_header_when_enabled() {
+        PulseProperties.Context context = new PulseProperties.Context(
+                true, "X-Request-ID", "X-Correlation-ID", "X-User-ID", "X-Tenant-ID", "Idempotency-Key", List.of());
+        PulseProperties.Retry retry = new PulseProperties.Retry(true, "X-Pulse-Retry-Depth", 3);
+
+        Map<String, String> map = HeaderPropagation.headerToMdcKey(context, retry);
+
+        assertThat(map).containsEntry("X-Pulse-Retry-Depth", ContextKeys.RETRY_DEPTH);
+    }
+
+    @Test
+    void retry_overload_omits_amplification_header_when_disabled() {
+        PulseProperties.Context context = new PulseProperties.Context(
+                true, "X-Request-ID", "X-Correlation-ID", "X-User-ID", "X-Tenant-ID", "Idempotency-Key", List.of());
+        PulseProperties.Retry retry = new PulseProperties.Retry(false, "X-Pulse-Retry-Depth", 3);
+
+        Map<String, String> map = HeaderPropagation.headerToMdcKey(context, retry);
+
+        assertThat(map).doesNotContainKey("X-Pulse-Retry-Depth");
+    }
 }

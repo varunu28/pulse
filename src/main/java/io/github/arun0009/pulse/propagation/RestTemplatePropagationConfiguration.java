@@ -32,7 +32,7 @@ public class RestTemplatePropagationConfiguration {
 
         @Bean
         public RestTemplateCustomizer pulseRestTemplateCustomizer(PulseProperties properties) {
-            Map<String, String> headerMap = HeaderPropagation.headerToMdcKey(properties.context());
+            Map<String, String> headerMap = HeaderPropagation.headerToMdcKey(properties.context(), properties.retry());
             return restTemplate -> restTemplate.getInterceptors().add((request, body, execution) -> {
                 Map<String, String> mdc = MDC.getCopyOfContextMap();
                 if (mdc != null) {

@@ -148,6 +148,7 @@ class PulseKafkaRecordInterceptorTest {
                         100,
                         "__overflow__",
                         "unknown",
-                        List.of()));
+                        List.of()),
+                new PulseProperties.Retry(true, "X-Pulse-Retry-Depth", 3));
     }
 }

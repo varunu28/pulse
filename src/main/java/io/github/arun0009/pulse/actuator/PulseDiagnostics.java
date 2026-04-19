@@ -99,6 +99,7 @@ public final class PulseDiagnostics {
         pulse.put("profiling", properties.profiling());
         pulse.put("dependencies", properties.dependencies());
         pulse.put("tenant", properties.tenant());
+        pulse.put("retry", properties.retry());
         return Map.of("pulse", pulse);
     }
 
@@ -270,6 +271,13 @@ public final class PulseDiagnostics {
         tenantDetails.put("maxTagCardinality", properties.tenant().maxTagCardinality());
         tenantDetails.put("tagMeters", properties.tenant().tagMeters());
         map.put("tenant", entry(properties.tenant().enabled(), tenantDetails));
+        map.put(
+                "retry",
+                entry(
+                        properties.retry().enabled(),
+                        Map.of(
+                                "headerName", properties.retry().headerName(),
+                                "amplificationThreshold", properties.retry().amplificationThreshold())));
         return map;
     }
 

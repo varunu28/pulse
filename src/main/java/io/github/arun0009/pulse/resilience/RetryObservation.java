@@ -8,6 +8,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanContext;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -59,12 +60,18 @@ public final class RetryObservation implements SmartInitializingSingleton {
                 .counter("pulse.r4j.retry.attempts_total", Tags.of("name", event.getName()))
                 .increment();
 
+        // Bump the cross-service retry-depth counter so the next outbound hop carries it on
+        // X-Pulse-Retry-Depth and downstream services can detect amplification.
+        int depth = RetryDepthContext.increment();
+        MDC.put(RetryDepthFilter.MDC_KEY, Integer.toString(depth));
+
         Span span = Span.current();
         SpanContext spanContext = span.getSpanContext();
         if (spanContext.isValid()) {
             span.addEvent("pulse.r4j.retry.attempt");
             span.setAttribute("pulse.r4j.retry.name", event.getName());
             span.setAttribute("pulse.r4j.retry.attempt_number", event.getNumberOfRetryAttempts());
+            span.setAttribute("pulse.retry.depth", depth);
         }
     }
 

@@ -319,3 +319,28 @@ groups:
             in the last 5m. Check the per-endpoint pulse.request.fan_out distribution
             to find the offending route — this is usually an N+1 at the caller layer
             introduced by a recent change.
+
+      # ── Retry amplification (cross-service cascade detector) ─────────
+      # Pulse propagates a per-request retry-depth counter through the call
+      # chain (X-Pulse-Retry-Depth header). When inbound depth crosses
+      # pulse.retry.amplification-threshold (default 3), Pulse increments
+      # pulse.retry.amplification_total. A single hit is an early-warning
+      # sign of a forming cascade; >5% of traffic is the cascade itself.
+      - alert: PulseRetryAmplification
+        expr: |
+          sum by (application, env, endpoint)
+            (rate(pulse_retry_amplification_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: page
+          slo: availability
+          subsystem: resilience
+        annotations:
+          summary: "{{ $labels.application }}: retry amplification on {{ $labels.endpoint }}"
+          description: |
+            >5% of requests to {{ $labels.endpoint }} arrived with retry-depth above the
+            configured threshold. A retry storm is forming somewhere in the call chain.
+            Combined with PulseTimeoutBudgetExhaustion, this is the signature of a
+            cascading failure in progress — find the root cause downstream and
+            consider temporarily disabling retries on affected paths.
+          runbook_url: "https://github.com/arun0009/pulse/blob/main/docs/runbooks/retry-amplification.md"
