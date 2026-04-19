@@ -5,6 +5,88 @@ All notable changes to Pulse are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 and follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.3.0] — 2026-04-18
+
+The "between-services" release. 0.1.0 fixed per-service correctness; 0.2.0 saw inside the
+JVM (logs, jobs, DB, breakers, profiles); 0.3.0 closes the cross-service blind spots that
+only show up once you have 10+ services calling each other — caller-side dependency RED,
+retry amplification, multi-tenant context, container-aware memory, time-based Kafka lag,
+fleet config drift, graceful-shutdown observability, OpenFeature flag correlation, and
+zero-config Caffeine cache metrics.
+
+### Added
+- **Dependency health map (caller-side RED)** — every outbound HTTP call (RestTemplate,
+	WebClient, RestClient, OkHttp) is tagged with a logical dependency name (host-derived or
+	`@PulseDependency("payment-service")`) and recorded as
+	`pulse.dependency.requests{dep, method, status}` (counter) +
+	`pulse.dependency.latency{dep, method}` (timer). Per-request fan-out width is captured as
+	`pulse.request.fan_out{endpoint}` and `pulse.request.distinct_dependencies{endpoint}`
+	(distributions), so the "which downstream is killing me?" question is one Grafana panel
+	instead of a 30-minute incident exercise. New alert rule `PulseDependencyDegraded`.
+- **Multi-tenant context** — `TenantExtractor` SPI with three built-in extractors (header,
+	JWT claim, subdomain) gated by `@ConditionalOnProperty`. Resolved tenant lands on MDC
+	(`tenant.id`), OTel baggage, every outbound HTTP/Kafka header, and (opt-in) configured
+	meters as a tag. A dedicated `pulse.tenant.max-tag-cardinality` (default 100) caps the
+	tenant tag separately from the global firewall so a 10k-tenant platform doesn't blow up
+	its metrics bill. Extraction priority is explicit: system property > header > JWT claim
+	> subdomain > unknown.
+- **Retry amplification detection** — Pulse propagates `X-Pulse-Retry-Depth` on every
+	outbound hop (HTTP + Kafka) and reads it on every inbound request. When depth exceeds
+	`pulse.retry.amplification-threshold` (default 3) the request is counted in
+	`pulse.retry.amplification_total{endpoint}`, stamped as a span event, and logged WARN
+	with the depth in MDC. Composes with timeout-budget propagation: a request with depth=3
+	and 200 ms remaining budget is a cascade in progress. New alert rule
+	`PulseRetryAmplification`.
+- **Container memory observability** — `CgroupMemoryReader` parses cgroup v1 and v2 inside
+	the JVM (no JNI, no agent) and exposes `pulse.container.memory.used_bytes`,
+	`pulse.container.memory.limit_bytes`, `pulse.container.memory.headroom_ratio` as gauges
+	plus `pulse.container.memory.oom_kills_total` as a monotonically-increasing counter.
+	`ContainerMemoryHealthIndicator` flips DEGRADED below
+	`pulse.container.memory.warning-headroom-ratio` (default 0.15). New alert rules
+	`PulseContainerMemoryLowHeadroom` and `PulseContainerMemoryOomKill`. Off automatically
+	on non-Linux hosts where cgroups don't exist.
+- **Kafka time-based consumer lag** — the existing `RecordInterceptor` now records
+	`now() − record.timestamp()` per consumed record, exposed as
+	`pulse.kafka.consumer.time_lag_seconds{topic, partition, group}` (gauge). Time lag is the
+	SLO; offset lag is the vanity metric. New alert rule `PulseKafkaConsumerFallingBehind`
+	(fires above 5 minutes by default). Opt-out via `pulse.kafka.consumer-time-lag-enabled=false`.
+- **Fleet config-drift detection** — `ConfigHasher` produces a deterministic hash of the
+	resolved `pulse.*` configuration tree at startup and exposes it as the
+	`pulse.config.hash{hash}` gauge plus a `/actuator/pulse/config-hash` endpoint that
+	returns the hash and a flattened key-value view. The recording rule
+	`count(distinct pulse_config_hash) by (application, env) > 1` fires
+	`PulseConfigDrift` — catches stale ConfigMaps, partial deploys, and one-pod env-var
+	typos that today only surface as p99 tail latency.
+- **Graceful-shutdown observability** — `InflightRequestCounter` filter (highest
+	precedence) exposes `pulse.shutdown.inflight` so you can prove your readiness probe is
+	actually draining traffic before the JVM exits. `PulseDrainObservabilityLifecycle`
+	(SmartLifecycle, runs just before OTel flush) measures
+	`pulse.shutdown.drain.duration` (timer) and
+	`pulse.shutdown.dropped_total` (counter, requests still in flight when the drain window
+	expired). Configurable via `pulse.shutdown.drain.timeout` (default 30 s).
+- **OpenFeature observability** — when `dev.openfeature:sdk` is on the classpath, Pulse
+	auto-registers `PulseOpenFeatureMdcHook` so every flag evaluation lands on MDC
+	(`feature_flag.key`, `feature_flag.variant`, `feature_flag.provider_name`) and as an
+	OTel-semconv span event (`feature_flag.evaluation`). If the upstream
+	`dev.openfeature.contrib.hooks:otel` `OpenTelemetryHook` is also present, it is
+	registered automatically — Pulse never reimplements what the OpenFeature ecosystem
+	already ships.
+- **Caffeine cache observability (zero-config)** — when Caffeine is on the classpath, every
+	`CaffeineCacheManager` bean is post-processed to enable `recordStats()` automatically and
+	bound to Micrometer (`cache.gets`, `cache.puts`, `cache.evictions`, `cache.hit_ratio`)
+	without an extra configuration class. Opt-out via `pulse.cache.caffeine.enabled=false`.
+
+### Notes
+- 0.3.0 is additive. No 0.2.0 configuration keys were renamed or removed; new subsystems
+	are gated by their own `pulse.*` prefixes (`pulse.dependencies.*`, `pulse.tenant.*`,
+	`pulse.retry.*`, `pulse.container.memory.*`, `pulse.kafka.*`, `pulse.shutdown.*`,
+	`pulse.open-feature.*`, `pulse.cache.*`) and ship with safe defaults.
+- All new optional dependencies (`dev.openfeature:sdk`,
+	`com.github.ben-manes.caffeine:caffeine`, `spring-boot-starter-cache`) are declared
+	`<optional>true</optional>` so consumers don't get them transitively.
+
+[0.3.0]: https://github.com/arun0009/pulse/releases/tag/v0.3.0
+
 ## [0.2.0] — 2026-04-19
 
 The "see everything" release. Pulse 0.2.0 ships six headline subsystems that close the

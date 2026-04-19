@@ -37,6 +37,9 @@ Drop in Pulse and you get all of this **on by default**, zero configuration requ
 | **Logs** | Structured JSON layout · PII masking (emails, SSN, credit cards, tokens, secrets) · AUDIT channel |
 | **SLO** | SLO-as-code in `application.yml` · `/actuator/pulse/slo` generates `PrometheusRule` YAML · Multi-window burn-rate alerts |
 | **Diagnostics** | `/actuator/pulse` subsystem map · `/actuator/pulseui` HTML view · OTel exporter health indicator · Runtime top-offenders |
+| **Cross-service** | Caller-side dependency RED · Request fan-out width · Retry-amplification detection · Multi-tenant context propagation |
+| **Platform** | Container-aware memory (cgroup v1/v2) · Kafka time-based consumer lag · Fleet config-drift detection · Graceful-shutdown drain telemetry |
+| **Integrations** | Caffeine cache stats (zero-config) · OpenFeature flag-evaluation MDC + span events |
 | **Ops artifacts** | Grafana dashboard · Prometheus alert rules · Incident runbooks · Production checklist |
 | **Local stack** | One-command Docker Compose: OTel Collector + Prometheus + Grafana + Jaeger + Loki |
 | **Testing** | `@PulseTest` Spring Boot test slice · `PulseTestHarness` fluent assertions |
@@ -102,6 +105,14 @@ actually works at 3 AM:
 | Your SLOs live in a wiki | wiki | **SLO-as-code** in `application.yml` → `curl /actuator/pulse/slo \| kubectl apply -f -` |
 | Logs leak emails, tokens, secrets, credit cards | DIY | **PII masking converter** built into the JSON layout |
 | `/actuator/info` doesn't tell you what observability is even on | guess | **`/actuator/pulse`** + **`/actuator/pulseui`** show every subsystem's effective config and live state |
+| Latency spike in a 50-service mesh — which downstream is at fault? | open every dashboard, correlate timestamps | **Dependency health map** — caller-side per-target RED + fan-out width, one panel |
+| 1 user request becomes 27 calls to a struggling backend | invisible until it cascades | **Retry amplification** — `X-Pulse-Retry-Depth` propagates through every hop, alerts before the cascade lands |
+| OOMKilled in Kubernetes — JVM had 4 GB free | JVM has no idea the cgroup limit was 2 GB | **Container memory** — cgroup v1/v2 used / limit / headroom + OOM-kill counter + health |
+| Kafka consumer is "50 k messages behind" — is that bad? | depends on rate (no idea) | **Time-based lag** — `pulse.kafka.consumer.time_lag_seconds`, the actual SLO |
+| Pod 17 silently runs with stale ConfigMap; p99 tail starts misbehaving | no signal until something fails | **Fleet config-drift** — `pulse.config.hash` gauge, alert on more than one hash per service |
+| Rolling deploy drops in-flight requests mid-shutdown | no visibility | **Graceful-shutdown** inflight gauge + drain timer + dropped counter |
+| Feature flag flipped — was *that* what broke prod? | flag and trace are in different tools | **OpenFeature** hook stamps every evaluation on MDC + span events with semconv keys |
+| One tenant abuses the platform — which one, on which endpoint? | manual log spelunking | **Multi-tenant context** — tenant on MDC, baggage, outbound headers, opt-in metric tag |
 
 ---
 
@@ -467,6 +478,141 @@ charges $30+/host/month for is one config line away.
 reports cardinality top-offenders, SLO compliance, and (via the bundled
 `OtelExporterHealthIndicator`) whether your trace exporter has actually exported anything in the
 last few minutes. `/actuator/pulseui` renders the same data as a single dependency-free HTML page.
+
+### 13. Dependency health map (caller-side RED)
+
+Every outbound call is recorded against a logical dependency name — derived from the target host
+or set explicitly with `@PulseDependency("payment-service")`:
+
+```
+pulse.dependency.requests{dep="payment-service", method="POST", status="2xx"}
+pulse.dependency.latency{dep="payment-service", method="POST"}    # timer w/ histograms
+pulse.request.fan_out{endpoint="POST /checkout"}                  # distribution
+pulse.request.distinct_dependencies{endpoint="POST /checkout"}    # distribution
+```
+
+Per-request fan-out width turns "this one endpoint started fanning out to 47 dependencies"
+from a forensic exercise into an alert. Works across `RestTemplate`, `WebClient`, `RestClient`,
+and OkHttp with zero code changes; the alert rule `PulseDependencyDegraded` ships in
+`alerts/prometheus/pulse-slo-alerts.yaml`.
+
+### 14. Retry amplification detection
+
+Pulse propagates `X-Pulse-Retry-Depth` on every outbound HTTP and Kafka call and reads it on
+every inbound. When the depth exceeds the threshold (default 3) the request is counted in
+`pulse.retry.amplification_total{endpoint}`, stamped as a span event, and logged WARN with the
+depth in MDC. Combined with timeout-budget propagation, you get the two leading indicators of a
+cascade-in-progress before it lands as an outage.
+
+```yaml
+pulse:
+	retry:
+		amplification-threshold: 3
+```
+
+### 15. Multi-tenant context
+
+A single `TenantExtractor` SPI plus three built-in extractors (header, JWT claim, subdomain)
+that you turn on with `@ConditionalOnProperty`. The resolved tenant lands on MDC, OTel baggage,
+every outbound HTTP / Kafka header, and (opt-in) configured meters as a tag. A separate
+`pulse.tenant.max-tag-cardinality` (default 100) caps the tenant tag independently of the global
+firewall so a 10k-tenant platform can't blow up its metrics bill.
+
+```yaml
+pulse:
+	tenant:
+		header:
+			enabled: true
+			name: X-Tenant-Id
+		max-tag-cardinality: 100
+		tagged-meters: [http.server.requests, pulse.dependency.latency]
+```
+
+Extraction priority is explicit: system property > header > JWT claim > subdomain > unknown.
+
+### 16. Container memory observability
+
+`CgroupMemoryReader` parses cgroup v1 and v2 inside the JVM (no JNI, no agent) so you finally
+see what the kernel sees, not what the JVM thinks it has:
+
+```
+pulse.container.memory.used_bytes
+pulse.container.memory.limit_bytes
+pulse.container.memory.headroom_ratio
+pulse.container.memory.oom_kills_total          # increments on every OOMKill
+```
+
+`ContainerMemoryHealthIndicator` flips DEGRADED below
+`pulse.container.memory.warning-headroom-ratio` (default 0.15) so your readiness probe can pull
+the pod out of rotation before the OOMKiller does. Off automatically on hosts where cgroups
+don't exist.
+
+### 17. Kafka time-based consumer lag
+
+The existing `RecordInterceptor` now records `now() − record.timestamp()` per consumed record:
+
+```
+pulse.kafka.consumer.time_lag_seconds{topic, partition, group}
+```
+
+Time lag is the SLO; offset lag is the vanity metric. The shipped `PulseKafkaConsumerFallingBehind`
+alert fires above 5 minutes by default. Opt-out with `pulse.kafka.consumer-time-lag-enabled=false`.
+
+### 18. Fleet config-drift detection
+
+`ConfigHasher` produces a deterministic hash of the resolved `pulse.*` configuration tree at
+startup and exposes it as the `pulse.config.hash{hash}` gauge plus the
+`/actuator/pulse/config-hash` endpoint:
+
+```
+$ curl -s /actuator/pulse/config-hash | jq '{hash, count: (.flat | length)}'
+{ "hash": "a8c3…", "count": 64 }
+```
+
+The recording rule `count(distinct pulse_config_hash) by (application, env) > 1` fires
+`PulseConfigDrift` — catches stale ConfigMaps, partial deploys, and one-pod env-var typos that
+otherwise only surface as p99 tail latency.
+
+### 19. Graceful-shutdown observability
+
+A high-precedence servlet filter exposes `pulse.shutdown.inflight` so you can prove your
+readiness probe is actually draining traffic before the JVM exits.
+`PulseDrainObservabilityLifecycle` (a `SmartLifecycle` running just before OTel flush) measures
+`pulse.shutdown.drain.duration` (timer) and `pulse.shutdown.dropped_total` (counter — requests
+still in flight when the drain window expired).
+
+```yaml
+pulse:
+	shutdown:
+		drain:
+			enabled: true
+			timeout: 30s
+```
+
+### 20. OpenFeature flag-evaluation correlation
+
+When `dev.openfeature:sdk` is on the classpath, Pulse auto-registers a hook that stamps every
+flag evaluation on MDC and as an OTel-semconv span event:
+
+```
+feature_flag.key=checkout_v2  feature_flag.variant=on  feature_flag.provider_name=launchdarkly
+```
+
+If the upstream `dev.openfeature.contrib.hooks:otel` hook is also present, it is registered
+automatically. Pulse never reimplements what the OpenFeature ecosystem already ships.
+
+### 21. Caffeine cache observability (zero-config)
+
+When Caffeine is on the classpath, every `CaffeineCacheManager` bean is post-processed to enable
+`recordStats()` automatically and bound to Micrometer:
+
+```
+cache.gets{cache, manager, result=hit|miss}
+cache.puts{cache, manager}
+cache.evictions{cache, manager, cause}
+```
+
+Opt-out via `pulse.cache.caffeine.enabled=false`.
 
 ---
 
