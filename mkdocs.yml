@@ -101,31 +101,31 @@ nav:
       - features/index.md
       - Day-one drivers:
           - Cardinality firewall: features/cardinality-firewall.md
-          - Timeout-budget propagation: features/timeout-budget.md
-          - Context propagation (@Async / @Scheduled / Kafka): features/context-propagation.md
+          - Timeout budget: features/timeout-budget.md
+          - Context propagation: features/context-propagation.md
           - Trace-context guard: features/trace-context-guard.md
-          - Structured logs (OTel-aligned): features/structured-logs.md
-          - Stable exception fingerprints: features/exception-fingerprints.md
-      - Distributed-systems extras:
-          - Dependency health map: features/dependencies.md
-          - Retry amplification detection: features/retry-amplification.md
+          - Structured logs: features/structured-logs.md
+          - Exception fingerprints: features/exception-fingerprints.md
+      - Distributed-systems:
+          - Dependency health: features/dependencies.md
+          - Retry amplification: features/retry-amplification.md
           - Multi-tenant context: features/multi-tenant.md
           - Request priority: features/priority.md
-          - Container-aware memory: features/container-memory.md
-          - Kafka time-based lag: features/kafka-time-lag.md
-          - Request fan-out width: features/fan-out.md
+          - Container memory: features/container-memory.md
+          - Kafka time lag: features/kafka-time-lag.md
+          - Request fan-out: features/fan-out.md
       - Spring extras:
           - SLO-as-code: features/slo-as-code.md
-          - Resilience4j auto-instrumentation: features/resilience4j.md
-          - Background-job observability: features/jobs.md
-          - Database (N+1, slow query): features/database.md
-          - Cache observability (Caffeine): features/cache.md
-          - OpenFeature correlation: features/openfeature.md
-          - Continuous-profiling correlation: features/profiling.md
-          - Wide-event API (SpanEvents): features/wide-events.md
-          - Graceful drain + OTel flush: features/graceful-shutdown.md
-          - Fleet config-drift hash: features/fleet-config-drift.md
-          - Live diagnostic actuator (/actuator/pulse + /actuator/pulseui): features/actuator.md
+          - Resilience4j: features/resilience4j.md
+          - Background jobs: features/jobs.md
+          - Database (N+1): features/database.md
+          - Cache (Caffeine): features/cache.md
+          - OpenFeature: features/openfeature.md
+          - Continuous profiling: features/profiling.md
+          - Wide events: features/wide-events.md
+          - Graceful shutdown: features/graceful-shutdown.md
+          - Fleet config drift: features/fleet-config-drift.md
+          - Diagnostic actuator: features/actuator.md
           - Sampling: features/sampling.md
   - Configuration: configuration.md
   - Operations:

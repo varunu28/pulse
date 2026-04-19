@@ -20,9 +20,9 @@
 <p align="center">
 	<a href="https://arun0009.github.io/pulse/"><strong>Documentation</strong></a>
 	&nbsp;·&nbsp;
-	<a href="https://arun0009.github.io/pulse/quickstart/">Quick start</a>
+	<a href="#quick-start">Quick start</a>
 	&nbsp;·&nbsp;
-	<a href="https://arun0009.github.io/pulse/features/">Features</a>
+	<a href="#six-reasons-to-install-pulse-on-day-one">Features</a>
 	&nbsp;·&nbsp;
 	<a href="CHANGELOG.md">Changelog</a>
 </p>
