@@ -78,7 +78,12 @@ class PulseKafkaProducerInterceptorTest {
             interceptor.onSend(record);
 
             String budgetHeader = headerValue(record, "Pulse-Timeout-Ms");
-            long remainingMs = Long.parseLong(budgetHeader);
+            long remainingMs;
+            try {
+                remainingMs = Long.parseLong(budgetHeader);
+            } catch (NumberFormatException e) {
+                throw new AssertionError("Pulse-Timeout-Ms must be a long, got: " + budgetHeader, e);
+            }
             assertThat(remainingMs).isBetween(1500L, 2000L);
         }
     }

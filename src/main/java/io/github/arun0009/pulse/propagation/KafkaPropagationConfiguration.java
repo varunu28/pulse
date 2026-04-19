@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -57,8 +58,8 @@ public class KafkaPropagationConfiguration {
         }
 
         @Bean
-        public ProducerFactoryCustomizer pulseProducerFactoryCustomizer(
-                @SuppressWarnings("unused") KafkaPropagationContextInitializer ensureInitialized) {
+        @DependsOn("pulseKafkaPropagationContextInitializer")
+        public ProducerFactoryCustomizer pulseProducerFactoryCustomizer() {
             return new ProducerFactoryCustomizer();
         }
 
