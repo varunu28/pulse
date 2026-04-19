@@ -5,211 +5,190 @@ All notable changes to Pulse are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 and follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
-## [0.3.0] — 2026-04-18
+## [1.0.0] — 2026-04-19
 
-The "between-services" release. 0.1.0 fixed per-service correctness; 0.2.0 saw inside the
-JVM (logs, jobs, DB, breakers, profiles); 0.3.0 closes the cross-service blind spots that
-only show up once you have 10+ services calling each other — caller-side dependency RED,
-retry amplification, multi-tenant context, container-aware memory, time-based Kafka lag,
-fleet config drift, graceful-shutdown observability, OpenFeature flag correlation, and
-zero-config Caffeine cache metrics.
+First public release. Pulse 1.0 freezes the `pulse.*` configuration surface, the metric
+names, the header/baggage keys, and the public Java types. Subsequent 1.x releases will
+be additive only — no renames, no removals.
 
-### Added
+Pulse is a batteries-included observability starter for Spring Boot 4. It ships the
+guardrails that keep observability honest in production (cardinality firewall,
+timeout-budget propagation, SLO-as-code, structured JSON logs with build/commit/host/cloud
+metadata) plus the per-service and between-services signals that close the most expensive
+distributed-systems blind spots: caller-side dependency RED, retry amplification,
+multi-tenancy, fleet config drift, request-criticality propagation, container-aware
+memory, time-based Kafka lag, graceful-shutdown observability, N+1 detection, jobs,
+circuit breakers, and trace-correlated CPU profiles. No agent, no bytecode tricks, no
+fork — just Spring Boot auto-configuration on top of OpenTelemetry and Micrometer.
+
+### Production guardrails
+- **Cardinality firewall** — automatic per-meter cap on distinct tag values
+	(`pulse.cardinality.max-tag-values-per-meter`, default 1000) with overflow bucketing
+	and a `pulse.cardinality.overflow` counter so blown dimensions are visible, not silent.
+- **Timeout-budget propagation** — inbound `Pulse-Timeout-Ms` header is parsed, baggage-stored,
+	and deducted on every outbound hop. Exhaustion increments
+	`pulse.timeout-budget.exhausted` and (for `critical` priority requests) logs at `ERROR`.
+- **Trace-guard filter** — counter on inbound requests missing W3C trace context.
+- **`PulseTaskDecorator`** — propagates MDC + OTel context across `@Async`,
+	`CompletableFuture`, `@Scheduled`, virtual threads.
+- **Common tags** — every meter is tagged with `application` and `env`.
+- **Histograms + SLOs** — opinionated bucket defaults at the
+	50ms / 100ms / 250ms / 500ms / 1s / 5s boundaries.
+- **PII-masking log converter** for the JSON layout (emails, SSNs, credit-card numbers,
+	Bearer tokens, JSON-serialized secrets).
+- **Wide-event API** — `SpanEvents.emit(name, attrs)` writes a span event, increments a
+	bounded counter, and stamps a structured log line in one call.
+- **Sampling** — `ParentBased(TraceIdRatioBased(probability))` plus a best-effort
+	error-biased sampler that lifts spans flagged `ERROR` even when the parent's flag would
+	have dropped them.
+
+### Structured logging
+- **Log4j2 + Logback parity** — `PulseLogbackEncoder` produces the same JSON shape as the
+	Log4j2 layout. Auto-loaded by Spring Boot's `LoggingSystem`.
+- **OTel semantic-convention dual-emit** — JSON layout emits both flat (`traceId`,
+	`spanId`, `service`, `env`, `app.version`, `build.commit`) and OTel-semconv (`trace_id`,
+	`span_id`, `service.name`, `service.version`, `deployment.environment`,
+	`vcs.ref.head.revision`) field names so logs land correlated in Grafana / Loki / Tempo
+	with no manual relabel.
+- **Resource-attribute log fields** — every log line is stamped with `host.name`,
+	`container.id`, `k8s.pod.name`, `k8s.namespace.name`, `k8s.node.name`, `cloud.provider`,
+	`cloud.region`, `cloud.availability_zone`. `ResourceAttributeResolver` reads
+	`OTEL_RESOURCE_ATTRIBUTES` first (operator override), then platform env vars
+	(`AWS_REGION`, `POD_NAME`, `NODE_NAME`, …), then OS-level introspection
+	(`/proc/self/cgroup`, K8s service-account namespace mount). Resolved values are seeded
+	as JVM system properties so every thread's logs carry them with zero per-request cost.
+- **Multi-source `app.version` / `build.commit` resolution** —
+	`PulseLoggingEnvironmentPostProcessor` reads JVM system properties → classpath
+	`META-INF/build-info.properties` + `git.properties` → `OTEL_RESOURCE_ATTRIBUTES` →
+	common CI env vars → boot JAR `Implementation-Version`. Pre-Spring-boot lines from
+	background threads carry the right metadata.
+
+### Between-services signals
 - **Dependency health map (caller-side RED)** — every outbound HTTP call (RestTemplate,
-	WebClient, RestClient, OkHttp) is tagged with a logical dependency name (host-derived or
-	`@PulseDependency("payment-service")`) and recorded as
-	`pulse.dependency.requests{dep, method, status}` (counter) +
-	`pulse.dependency.latency{dep, method}` (timer). Per-request fan-out width is captured as
-	`pulse.request.fan_out{endpoint}` and `pulse.request.distinct_dependencies{endpoint}`
-	(distributions), so the "which downstream is killing me?" question is one Grafana panel
-	instead of a 30-minute incident exercise. New alert rule `PulseDependencyDegraded`.
-- **Multi-tenant context** — `TenantExtractor` SPI with three built-in extractors (header,
-	JWT claim, subdomain) gated by `@ConditionalOnProperty`. Resolved tenant lands on MDC
-	(`tenant.id`), OTel baggage, every outbound HTTP/Kafka header, and (opt-in) configured
-	meters as a tag. A dedicated `pulse.tenant.max-tag-cardinality` (default 100) caps the
-	tenant tag separately from the global firewall so a 10k-tenant platform doesn't blow up
-	its metrics bill. Extraction priority is explicit: system property > header > JWT claim
-	> subdomain > unknown.
-- **Retry amplification detection** — Pulse propagates `X-Pulse-Retry-Depth` on every
+	WebClient, RestClient, OkHttp) is tagged with a logical dependency name (host-derived
+	or `@PulseDependency("payment-service")`) and recorded as
+	`pulse.dependency.requests{dep, method, status}` +
+	`pulse.dependency.latency{dep, method}`. Per-request fan-out width is captured as
+	`pulse.request.fan_out{endpoint}` and `pulse.request.distinct_dependencies{endpoint}`.
+	New alert rule `PulseDependencyDegraded`.
+- **Topology-aware health (`DependencyHealthIndicator`)** — `/actuator/health` flips
+	`DEGRADED` (or `OUT_OF_SERVICE` if configured) when a critical downstream's
+	caller-side error rate exceeds `pulse.dependencies.health.error-rate-threshold`
+	(default 0.05). Reads the existing `pulse.dependency.requests` meters — no extra HTTP
+	calls, no circular health checks. Configure with
+	`pulse.dependencies.health.critical=payment-service,inventory-service`.
+- **Retry amplification detection** — Pulse propagates `Pulse-Retry-Depth` on every
 	outbound hop (HTTP + Kafka) and reads it on every inbound request. When depth exceeds
 	`pulse.retry.amplification-threshold` (default 3) the request is counted in
-	`pulse.retry.amplification_total{endpoint}`, stamped as a span event, and logged WARN
-	with the depth in MDC. Composes with timeout-budget propagation: a request with depth=3
-	and 200 ms remaining budget is a cascade in progress. New alert rule
-	`PulseRetryAmplification`.
-- **Container memory observability** — `CgroupMemoryReader` parses cgroup v1 and v2 inside
-	the JVM (no JNI, no agent) and exposes `pulse.container.memory.used_bytes`,
-	`pulse.container.memory.limit_bytes`, `pulse.container.memory.headroom_ratio` as gauges
-	plus `pulse.container.memory.oom_kills_total` as a monotonically-increasing counter.
-	`ContainerMemoryHealthIndicator` flips DEGRADED below
-	`pulse.container.memory.warning-headroom-ratio` (default 0.15). New alert rules
-	`PulseContainerMemoryLowHeadroom` and `PulseContainerMemoryOomKill`. Off automatically
-	on non-Linux hosts where cgroups don't exist.
-- **Kafka time-based consumer lag** — the existing `RecordInterceptor` now records
-	`now() − record.timestamp()` per consumed record, exposed as
-	`pulse.kafka.consumer.time_lag_seconds{topic, partition, group}` (gauge). Time lag is the
-	SLO; offset lag is the vanity metric. New alert rule `PulseKafkaConsumerFallingBehind`
-	(fires above 5 minutes by default). Opt-out via `pulse.kafka.consumer-time-lag-enabled=false`.
-- **Fleet config-drift detection** — `ConfigHasher` produces a deterministic hash of the
-	resolved `pulse.*` configuration tree at startup and exposes it as the
-	`pulse.config.hash{hash}` gauge plus a `/actuator/pulse/config-hash` endpoint that
-	returns the hash and a flattened key-value view. The recording rule
-	`count(distinct pulse_config_hash) by (application, env) > 1` fires
-	`PulseConfigDrift` — catches stale ConfigMaps, partial deploys, and one-pod env-var
-	typos that today only surface as p99 tail latency.
-- **Graceful-shutdown observability** — `InflightRequestCounter` filter (highest
-	precedence) exposes `pulse.shutdown.inflight` so you can prove your readiness probe is
-	actually draining traffic before the JVM exits. `PulseDrainObservabilityLifecycle`
-	(SmartLifecycle, runs just before OTel flush) measures
-	`pulse.shutdown.drain.duration` (timer) and
-	`pulse.shutdown.dropped_total` (counter, requests still in flight when the drain window
-	expired). Configurable via `pulse.shutdown.drain.timeout` (default 30 s).
+	`pulse.retry.amplification{endpoint}`, stamped as a span event, and logged `WARN`.
+	New alert rule `PulseRetryAmplification`.
+- **Multi-tenant context** — `TenantExtractor` SPI with three built-in extractors
+	(`Pulse-Tenant-Id` header, JWT claim, subdomain) gated by `@ConditionalOnProperty`.
+	Resolved tenant lands on MDC (`tenant.id`), OTel baggage, every outbound HTTP/Kafka
+	header, and (opt-in) configured meters as a tag. A dedicated
+	`pulse.tenant.max-tag-cardinality` (default 100) caps the tenant tag separately from
+	the global firewall. Extraction priority: system property > header > JWT claim >
+	subdomain > unknown.
+- **Request criticality propagation** — `Pulse-Priority` inbound header (values:
+	`critical|high|normal|low|background`) lands on MDC (`priority`), OTel baggage, every
+	outbound HTTP/Kafka header, and (opt-in) configured meters as a tag. `critical`
+	requests that exhaust their timeout budget log at `ERROR` instead of `DEBUG`.
+
+### Per-service signals
+- **Background-job observability** — every `@Scheduled` (and any `Runnable` routed
+	through `TaskScheduler`) emits `pulse.jobs.executions{job, outcome}`,
+	`pulse.jobs.duration{job, outcome}`, and `pulse.jobs.in_flight{job}`. A
+	`JobsHealthIndicator` flips `DOWN` if any observed job hasn't succeeded within
+	`pulse.jobs.failure-grace-period` (default 1h). ShedLock-managed jobs included.
+- **Database observability** — when Hibernate is on the classpath, a `StatementInspector`
+	counts every prepared SQL statement against the inbound request and emits
+	`pulse.db.statements_per_request{endpoint}` (distribution) and
+	`pulse.db.n_plus_one.suspect{endpoint}` (counter, fires above 50 by default). N+1
+	events stamp a span event + a single structured `WARN` line carrying the per-verb
+	breakdown. Slow queries are correlated to traces via Hibernate's
+	`LOG_QUERIES_SLOWER_THAN_MS` (default 500ms).
+- **Resilience4j auto-instrumentation** — when `CircuitBreakerRegistry`, `RetryRegistry`,
+	or `BulkheadRegistry` are present, Pulse attaches event consumers and emits
+	`pulse.resilience.circuit_breaker.state_transitions{name, from, to}`,
+	`pulse.resilience.circuit_breaker.state{name}`,
+	`pulse.resilience.circuit_breaker.errors{name}`,
+	`pulse.resilience.retry.attempts{name}`, `pulse.resilience.retry.exhausted{name}`,
+	`pulse.resilience.bulkhead.rejected{name}`. Every state transition lands as a span
+	event; every retry attempt and bulkhead rejection stamps one too.
+- **Continuous-profiling correlation** — every span is stamped at start with `profile.id`,
+	`pyroscope.profile_id`, and (root-only, when `pulse.profiling.pyroscope-url` is set) a
+	fully-qualified `pulse.profile.url` deep link to the flame graph for the trace's
+	window. `PyroscopeDetector` reports agent presence at startup. Pulse never bundles a
+	profiler — it observes the agent the operator already injected.
 - **OpenFeature observability** — when `dev.openfeature:sdk` is on the classpath, Pulse
 	auto-registers `PulseOpenFeatureMdcHook` so every flag evaluation lands on MDC
 	(`feature_flag.key`, `feature_flag.variant`, `feature_flag.provider_name`) and as an
-	OTel-semconv span event (`feature_flag.evaluation`). If the upstream
-	`dev.openfeature.contrib.hooks:otel` `OpenTelemetryHook` is also present, it is
-	registered automatically — Pulse never reimplements what the OpenFeature ecosystem
-	already ships.
-- **Caffeine cache observability (zero-config)** — when Caffeine is on the classpath, every
-	`CaffeineCacheManager` bean is post-processed to enable `recordStats()` automatically and
-	bound to Micrometer (`cache.gets`, `cache.puts`, `cache.evictions`, `cache.hit_ratio`)
-	without an extra configuration class. Opt-out via `pulse.cache.caffeine.enabled=false`.
+	OTel-semconv span event (`feature_flag.evaluation`). The upstream
+	`dev.openfeature.contrib.hooks:otel` `OpenTelemetryHook` is registered automatically
+	when present.
+- **Caffeine cache observability** — when Caffeine is on the classpath, every
+	`CaffeineCacheManager` bean is bound to Micrometer (`cache.gets`, `cache.puts`,
+	`cache.evictions`, `cache.hit_ratio`). Pulse never mutates the operator's Caffeine
+	builder; if `recordStats()` is missing it logs a one-time `WARN` per manager bean.
 
-### Notes
-- 0.3.0 is additive. No 0.2.0 configuration keys were renamed or removed; new subsystems
-	are gated by their own `pulse.*` prefixes (`pulse.dependencies.*`, `pulse.tenant.*`,
-	`pulse.retry.*`, `pulse.container.memory.*`, `pulse.kafka.*`, `pulse.shutdown.*`,
-	`pulse.open-feature.*`, `pulse.cache.*`) and ship with safe defaults.
-- All new optional dependencies (`dev.openfeature:sdk`,
-	`com.github.ben-manes.caffeine:caffeine`, `spring-boot-starter-cache`) are declared
-	`<optional>true</optional>` so consumers don't get them transitively.
+### Platform signals
+- **Container memory observability** — `CgroupMemoryReader` parses cgroup v1 and v2 inside
+	the JVM (no JNI, no agent) and exposes `pulse.container.memory.used`,
+	`pulse.container.memory.limit`, `pulse.container.memory.headroom_ratio` as gauges plus
+	`pulse.container.memory.oom_kills` as a counter. `ContainerMemoryHealthIndicator`
+	flips `DEGRADED` below `pulse.container.memory.warning-headroom-ratio` (default 0.15).
+	New alert rules `PulseContainerMemoryLowHeadroom` and `PulseContainerMemoryOomKill`.
+- **Kafka time-based consumer lag** — the `RecordInterceptor` records
+	`now() − record.timestamp()` per consumed record, exposed as
+	`pulse.kafka.consumer.time_lag{topic, partition, group}` (gauge, base unit `seconds`).
+	Time lag is the SLO; offset lag is the vanity metric. New alert rule
+	`PulseKafkaConsumerFallingBehind`.
+- **Fleet config-drift detection** — `ConfigHasher` produces a deterministic hash of the
+	resolved `pulse.*` configuration tree at startup and exposes it as the
+	`pulse.config.hash{hash}` gauge plus a `/actuator/pulse/config-hash` endpoint. New
+	alert rule `PulseConfigDrift`.
+- **Graceful-shutdown observability** — `InflightRequestCounter` filter exposes
+	`pulse.shutdown.inflight`. `PulseDrainObservabilityLifecycle` (SmartLifecycle, runs
+	just before OTel flush) measures `pulse.shutdown.drain.duration` (timer) and
+	`pulse.shutdown.dropped` (counter, requests still in flight when the drain window
+	expired). Configurable via `pulse.shutdown.drain.timeout` (default 30s).
 
-[0.3.0]: https://github.com/arun0009/pulse/releases/tag/v0.3.0
+### Operator surface
+- **`/actuator/pulse`** — self-documenting endpoint listing every active guardrail and
+	its config.
+- **`/actuator/pulse/effective-config`** — resolved runtime view of the full `pulse.*`
+	configuration tree.
+- **`/actuator/pulse/runtime`** — live guardrail diagnostics, including cardinality
+	overflow totals and top offending `(meter, tagKey)` pairs.
+- **`/actuator/pulse/config-hash`** — fleet drift hash + flattened key-value view.
+- **`additional-spring-configuration-metadata.json`** — IDE autocomplete with
+	descriptions and value hints for every `pulse.*` property in IntelliJ and VS Code.
+- **Grafana dashboard** (`dashboards/grafana/pulse-overview.json`) and **Prometheus
+	burn-rate SLO alerts** (`alerts/prometheus/pulse-slo-alerts.yaml`) shipped as
+	artifacts.
+- **On-call runbook** for error-budget burn alerts (`docs/runbooks/error-budget-burn.md`).
 
-## [0.2.0] — 2026-04-19
+### Test slice
+- **`@PulseTest` Spring Boot test slice** + `PulseTestHarness` fluent assertions for
+	in-memory observability testing. Auto-discovers the consumer's `@SpringBootApplication`.
 
-The "see everything" release. Pulse 0.2.0 ships six headline subsystems that close the
-production-blind-spot list our 0.1.0 adopters kept hitting: their logs, their circuit
-breakers, their scheduled jobs, their database queries, and their CPU profiles are all
-correlated to the same trace, with zero per-app glue code.
-
-### Added
-- **OTel semantic-convention log alignment** — JSON layout now dual-emits
-	`service.name`/`service`, `service.version`/`app.version`,
-	`deployment.environment`/`env`, `vcs.ref.head.revision`/`build.commit`,
-	`trace_id`/`traceId`, `span_id`/`spanId`, `http.request.id`/`requestId`, and
-	`user.id`/`userId`. Logs land correlated in Grafana / Loki / Tempo with no manual relabel.
-- **Logback support** — `PulseLogbackEncoder` + `logback-spring.xml` produce the same JSON
-	shape as Log4j2. Auto-loaded by Spring Boot's LoggingSystem for consumers who exclude
-	`spring-boot-starter-log4j2` and pull in `spring-boot-starter-logging`. Custom encoder, no
-	external JSON-encoder dependency, full PII masking + OTel semconv parity.
-- **Background-job observability** — every `@Scheduled` (and any Runnable routed through
-	`TaskScheduler`) is wrapped to emit `pulse.jobs.executions{job, outcome}`,
-	`pulse.jobs.duration{job, outcome}`, and `pulse.jobs.in_flight{job}` (overrun detector).
-	A `JobsHealthIndicator` flips DOWN if any observed job hasn't succeeded within
-	`pulse.jobs.failure-grace-period` (default 1h). `/actuator/pulse` exposes the live job
-	table with last-success/last-failure timestamps. ShedLock-managed jobs included
-	automatically.
-- **Database observability** — when Hibernate is on the classpath, Pulse wires a
-	`StatementInspector` that counts every prepared SQL statement against the inbound request
-	and emits `pulse.db.statements_per_request{endpoint}` (distribution) and
-	`pulse.db.n_plus_one.suspect{endpoint}` (counter, fires above 50 by default). N+1 events
-	also stamp a span event + a single structured WARN line carrying the per-verb breakdown
-	(`{SELECT=247, UPDATE=1}`) and `traceId`. Slow queries are correlated to traces by seeding
-	Hibernate's `LOG_QUERIES_SLOWER_THAN_MS` to `pulse.db.slow-query-threshold` (default
-	500ms) — the JSON layout adds `traceId` automatically. `@ConditionalOnClass`-gated, so
-	non-JPA apps pay nothing.
-- **Resilience4j auto-instrumentation** — when `CircuitBreakerRegistry`,
-	`RetryRegistry`, or `BulkheadRegistry` are present, Pulse attaches event consumers and
-	emits: `pulse.r4j.circuit_breaker.state_transitions{name, from, to}`,
-	`pulse.r4j.circuit_breaker.state{name}`, `pulse.r4j.circuit_breaker.errors_total{name}`,
-	`pulse.r4j.retry.attempts_total{name}`, `pulse.r4j.retry.exhausted_total{name}`,
-	`pulse.r4j.bulkhead.rejected_total{name}`. Every state transition lands as a span event
-	on the active span (`pulse.r4j.cb.state_transition`); every retry attempt stamps
-	`pulse.r4j.retry.attempt` so silent retries are no longer invisible. Lazily-created
-	breakers/retries are wired automatically via on-entry-added.
-- **Continuous-profiling correlation** — every span is stamped at start with `profile.id`,
-	`pyroscope.profile_id`, and (root-only, when `pulse.profiling.pyroscope-url` is set) a
-	fully-qualified `pulse.profile.url` deep link to the flame graph for the trace's window.
-	`PyroscopeDetector` reports agent presence at startup and at `/actuator/pulse`. Pulse
-	never bundles a profiler — it observes the agent the operator already injected.
-- **Resource-attribute log fields** — every log line is stamped with the OTel resource
-	attributes that identify *where* the JVM is running: `host.name`, `container.id`,
-	`k8s.pod.name`, `k8s.namespace.name`, `k8s.node.name`, `cloud.provider`, `cloud.region`,
-	`cloud.availability_zone`. `ResourceAttributeResolver` reads `OTEL_RESOURCE_ATTRIBUTES`
-	first (operator override), then platform env vars (AWS_REGION, POD_NAME, NODE_NAME, …),
-	then OS-level introspection (`/proc/self/cgroup` for the container ID,
-	`InetAddress.getLocalHost()` for the host name, the K8s service-account namespace mount).
-	Resolved values are seeded as JVM system properties at startup so every thread's logs
-	carry them with zero per-request cost. Dashboards like *"5xx rate per AZ"* or *"slow
-	checkout requests on node-7 in us-east-1a"* are one LogQL filter away — no per-app glue
-	required.
-
-### Notes
-- 0.2.0 is additive. No 0.1.0 configuration keys were renamed or removed; new subsystems
-	are gated by their own `pulse.*` prefixes (`pulse.jobs.*`, `pulse.db.*`,
-	`pulse.resilience.*`, `pulse.profiling.*`) and ship with safe `enabled=true` defaults.
-- All new optional dependencies (`hibernate-core`, `spring-boot-hibernate`, the three
-	`resilience4j-*` modules, `logback-classic`) are declared `<optional>true</optional>` so
-	consumers don't get them transitively.
-
-[0.2.0]: https://github.com/arun0009/pulse/releases/tag/v0.2.0
-
-## [0.1.0] — 2026-04-19
-
-First public release on Maven Central. Pulse is feature-complete for production-correctness
-on Spring Boot 4 — cardinality firewall, timeout-budget propagation, SLO-as-code,
-structured-logging-with-build-metadata, and the `@PulseTest` slice — but the API surface is
-not yet frozen. Per [SemVer](https://semver.org/spec/v2.0.0.html#spec-item-4), the `0.x`
-line reserves the right to evolve `pulse.*` configuration keys, actuator endpoint shapes,
-and `io.github.arun0009.pulse.*` classes between minor versions based on early-adopter
-feedback. A stable `1.0.0` will be cut once the surface has survived contact with real
-production deployments.
-
-### Added
-- **Cardinality firewall** — automatic per-meter cap on distinct tag values (default 1,000) with overflow bucketing.
-- **Timeout-budget propagation** — inbound `X-Timeout-Ms` header parsed, baggage-stored, deducted on every outbound hop. Outbound interceptor for `RestTemplate` sets the residual budget.
-- **Wide-event API** — `SpanEvents.emit(name, attrs)` writes a span event, increments a bounded counter, and stamps a structured log line in one call.
-- **`/actuator/pulse`** — self-documenting endpoint listing every active guardrail and its config.
-- **`pulse.timeout.budget.exhausted`** counter — fires when an outbound call goes out with zero budget remaining.
-- **PII masking log converter** for the JSON layout (emails, SSNs, credit-card numbers, Bearer tokens, JSON-serialized secrets).
-- **Trace-guard filter** — increments a counter on inbound requests missing W3C trace context.
-- **`PulseTaskDecorator`** — propagates MDC + OTel context across `@Async`, `CompletableFuture`, virtual threads.
-- **Common tags** — automatically tags every meter with `application` and `env`.
-- **Histograms + SLOs** — opinionated bucket defaults at the 50ms / 100ms / 250ms / 500ms / 1s / 5s boundaries.
-- **Audit logger** dedicated channel.
-- **Grafana dashboard** (`dashboards/grafana/pulse-overview.json`) and **Prometheus burn-rate SLO alerts** (`alerts/prometheus/pulse-slo-alerts.yaml`) shipped as artifacts.
+### Build & release
+- **Reproducible builds** — `project.build.outputTimestamp` set so the JAR is bytewise-
+	identical across rebuilds.
 - **CycloneDX SBOM** generated on every build.
 - **JaCoCo** coverage gate (≥70% line, ≥50% branch on merged unit + integration runs).
 - **Spotless + Google Java Format** enforced at `verify`.
-- **JMH benchmark** profile (`mvn -Pbench package exec:java`) for the cardinality firewall and `SpanEvents.emit`.
-- **`@PulseTest` Spring Boot test slice** + `PulseTestHarness` fluent assertions for in-memory observability testing.
-- **Testcontainers + WireMock integration tests** verifying real OTLP export and end-to-end timeout propagation.
-- **`/actuator/pulse/effective-config`** — resolved runtime view of the full `pulse.*` configuration tree.
-- **`/actuator/pulse/runtime`** — live guardrail diagnostics, including cardinality overflow totals and top offending `(meter, tagKey)` pairs.
-- **`pulse.cardinality.overflow`** metric (`pulse_cardinality_overflow_total` in Prometheus) for generic overflow alerting and dashboarding.
-- **On-call runbook** for error-budget burn alerts (`docs/runbooks/error-budget-burn.md`).
-- **Pulse logo asset** (`assets/pulse-logo.svg`) used in project docs.
-- **Multi-source `app.version` / `build.commit` resolution** — `PulseLoggingEnvironmentPostProcessor` reads JVM system properties → classpath `META-INF/build-info.properties` + `git.properties` → `OTEL_RESOURCE_ATTRIBUTES` → common CI env vars → boot JAR `Implementation-Version`, seeding both as JVM system properties so the JSON layout stamps every log line — including pre-Spring-boot lines from background threads.
-- **`additional-spring-configuration-metadata.json`** — IDE autocomplete with descriptions and value hints for every `pulse.*` property in IntelliJ and VS Code.
-- **Test slice now ships in the main starter** — `@PulseTest`, `PulseTestHarness`, and `PulseTestConfiguration` moved from `src/test` to `src/main/java/io/github/arun0009/pulse/test/`. JUnit, AssertJ, Spring Boot test, and OpenTelemetry SDK testing are declared `optional` so they don't propagate to production classpaths. `@PulseTest` now auto-discovers the consumer's `@SpringBootApplication` instead of forcing its own boot class.
-
-### Build & release
-- **Reproducible builds** — `project.build.outputTimestamp` set so the JAR is bytewise-identical across rebuilds.
-- **POM completeness for Maven Central** — added `organization`, `issueManagement`, `ciManagement`; corrected `scm.developerConnection` URL.
-- **Javadoc strict mode** — removed `failOnError=false`; broken Javadoc now fails the release build (using `doclint=all,-missing` to allow pragmatic gaps).
-
-### Changed
-- **Timeout-budget hardening** — inbound `X-Timeout-Ms` is now clamped by `pulse.timeout-budget.maximum-budget` before safety-margin/minimum logic.
-- **Async propagation toggle behavior** — `pulse.async.propagation-enabled` now controls whether Pulse installs `PulseTaskDecorator` on the auto-configured executor.
-- **Exception-handler coexistence** — Pulse global fallback advice is now lowest precedence so application-specific handlers can override it.
-- **Alerts and dashboards** now key off `pulse_cardinality_overflow_total` instead of hardcoded overflow tag-key assumptions.
-- **README** rewritten as a strict source of truth for currently implemented features/config keys.
-- **Security/release metadata consistency** improved across `SECURITY.md`, release workflow comments, and docs.
+- **JMH benchmark** profile (`mvn -Pbench package exec:java`) for the cardinality
+	firewall and `SpanEvents.emit`.
+- **Testcontainers + WireMock integration tests** verifying real OTLP export and
+	end-to-end timeout propagation.
 
 ### Notes
 - Built on Java 21, Spring Boot 4.0.5, OpenTelemetry SDK, and Micrometer.
+- All third-party integrations (Hibernate, Resilience4j, OpenFeature, Caffeine, Logback,
+	OkHttp, Kafka clients) are declared `<optional>true</optional>`. Consumers don't get
+	them transitively; subsystems light up only when the corresponding library is on the
+	classpath.
 - No bytecode tricks. No JVM agent. No forks.
 
 ### Measured overhead (JMH, JDK 21, Apple M-series, single-shot)
@@ -222,7 +201,7 @@ production deployments.
 | `SpanEvents.emit(name, attrs)` (counter on)        | ~27 ns/op |
 | `SpanEvents.emit(name, attrs)` (counter off)       |  ~4 ns/op |
 
-Reproduce with `make bench`. Numbers are not absolute (your hardware will
-differ); they exist so the perf claim is falsifiable, not a vibe.
+Reproduce with `make bench`. Numbers are not absolute (your hardware will differ); they
+exist so the perf claim is falsifiable, not a vibe.
 
-[0.1.0]: https://github.com/arun0009/pulse/releases/tag/v0.1.0
+[1.0.0]: https://github.com/arun0009/pulse/releases/tag/v1.0.0
