@@ -30,6 +30,8 @@ import io.github.arun0009.pulse.resilience.PulseResilience4jConfiguration;
 import io.github.arun0009.pulse.resilience.PulseRetryAmplificationConfiguration;
 import io.github.arun0009.pulse.scheduling.ContextPropagatingTaskScheduler;
 import io.github.arun0009.pulse.scheduling.PulseSchedulingConfigurer;
+import io.github.arun0009.pulse.shutdown.InflightRequestCounter;
+import io.github.arun0009.pulse.shutdown.PulseDrainObservabilityLifecycle;
 import io.github.arun0009.pulse.shutdown.PulseOtelShutdownLifecycle;
 import io.github.arun0009.pulse.slo.SloProjector;
 import io.github.arun0009.pulse.slo.SloRuleGenerator;
@@ -292,6 +294,50 @@ public class PulseAutoConfiguration {
     public PulseOtelShutdownLifecycle pulseOtelShutdownLifecycle(
             ObjectProvider<OpenTelemetrySdk> sdk, PulseProperties properties) {
         return new PulseOtelShutdownLifecycle(sdk.getIfAvailable(), properties.shutdown());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnClass(jakarta.servlet.Filter.class)
+    @ConditionalOnProperty(
+            prefix = "pulse.shutdown.drain",
+            name = "enabled",
+            havingValue = "true",
+            matchIfMissing = true)
+    public InflightRequestCounter pulseInflightRequestCounter(MeterRegistry registry) {
+        return new InflightRequestCounter(registry);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnClass(jakarta.servlet.Filter.class)
+    @ConditionalOnProperty(
+            prefix = "pulse.shutdown.drain",
+            name = "enabled",
+            havingValue = "true",
+            matchIfMissing = true)
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<InflightRequestCounter>
+            pulseInflightRequestCounterRegistration(InflightRequestCounter filter) {
+        var reg = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(filter);
+        reg.setOrder(org.springframework.core.Ordered.HIGHEST_PRECEDENCE);
+        reg.addUrlPatterns("/*");
+        return reg;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(
+            prefix = "pulse.shutdown.drain",
+            name = "enabled",
+            havingValue = "true",
+            matchIfMissing = true)
+    public PulseDrainObservabilityLifecycle pulseDrainObservabilityLifecycle(
+            ObjectProvider<InflightRequestCounter> counter, PulseProperties properties, MeterRegistry registry) {
+        InflightRequestCounter c = counter.getIfAvailable();
+        if (c == null) {
+            c = new InflightRequestCounter(registry);
+        }
+        return new PulseDrainObservabilityLifecycle(c, properties.shutdown().drain(), registry);
     }
 
     @Bean

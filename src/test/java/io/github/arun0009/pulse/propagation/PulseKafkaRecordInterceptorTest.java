@@ -134,7 +134,8 @@ class PulseKafkaRecordInterceptorTest {
                 new PulseProperties.Histograms(true, List.of(), List.of()),
                 new PulseProperties.Slo(true, List.of()),
                 new PulseProperties.Health(true, Duration.ofMinutes(5)),
-                new PulseProperties.Shutdown(true, Duration.ofSeconds(10)),
+                new PulseProperties.Shutdown(
+                        true, Duration.ofSeconds(10), new PulseProperties.Shutdown.Drain(true, Duration.ofSeconds(30))),
                 new PulseProperties.Jobs(true, true, Duration.ofHours(1)),
                 new PulseProperties.Db(true, 50, Duration.ofMillis(500)),
                 new PulseProperties.Resilience(true),

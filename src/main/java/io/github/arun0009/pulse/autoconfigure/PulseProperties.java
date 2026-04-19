@@ -245,7 +245,25 @@ public record PulseProperties(
      */
     public record Shutdown(
             @DefaultValue("true") boolean otelFlushEnabled,
-            @DefaultValue("10s") Duration otelFlushTimeout) {}
+            @DefaultValue("10s") Duration otelFlushTimeout,
+            @DefaultValue Drain drain) {
+
+        /**
+         * Drain observability — counts inflight HTTP requests at the moment Spring's
+         * {@code SmartLifecycle.stop()} fires, polls until they finish or the deadline
+         * elapses, and emits structured before/after metrics so an operator can answer
+         * "how long did the rolling deploy take to drain, and did anything get
+         * dropped?" without parsing logs by hand.
+         *
+         * <p>Cooperates with {@code server.shutdown=graceful} — Pulse's filter only
+         * <em>observes</em> the in-flight count; the actual draining is Spring Boot's
+         * job. Setting {@code enabled=false} removes both the filter and the lifecycle
+         * bean.
+         */
+        public record Drain(
+                @DefaultValue("true") boolean enabled,
+                @DefaultValue("30s") Duration timeout) {}
+    }
 
     /**
      * Background-job observability — wraps every {@code @Scheduled} method (and any other
