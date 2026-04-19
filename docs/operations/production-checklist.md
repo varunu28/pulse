@@ -62,15 +62,6 @@ Each item is one of:
 - **SHOULD** Verify the PII masking converter is active by injecting a known-bad payload in a
   staging test (see `PiiMaskingConverterTest`).
 
-## Audit
-
-- **MUST** If you call `AuditLogger`, configure a dedicated sink for the `AUDIT` logger in your
-  log config. The default appender colocates audit lines with application logs — fine for dev,
-  not for compliance.
-- **SHOULD** Use the `auditLogger.event(action).actor(...).resource(...).outcome(...).emit()`
-  fluent builder for every audit call; named attributes are far easier to evolve than positional
-  arguments.
-
 ## SLO & alerts
 
 - **MUST** Declare at least one SLO under `pulse.slo.objectives` even if it's

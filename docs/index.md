@@ -5,17 +5,6 @@ hide:
   - toc
 ---
 
-<style>
-  .md-typeset .pulse-hero { text-align: center; padding: 2rem 0 1rem; }
-  .md-typeset .pulse-hero img { max-width: 128px; }
-  .md-typeset .pulse-hero h1 { margin: 1rem 0 0.5rem; font-size: 2.5rem; }
-  .md-typeset .pulse-hero p.tagline { font-size: 1.15rem; max-width: 720px; margin: 0 auto 1.5rem; }
-  .md-typeset .pulse-cta { text-align: center; margin: 1rem 0 2.5rem; }
-  .md-typeset .pulse-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin: 2rem 0; }
-  .md-typeset .pulse-card { padding: 1rem 1.25rem; border: 1px solid var(--md-default-fg-color--lightest); border-radius: 0.4rem; }
-  .md-typeset .pulse-card h3 { margin-top: 0; }
-</style>
-
 <div class="pulse-hero" markdown>
 
 ![Pulse](assets/pulse-logo.svg)
@@ -23,8 +12,7 @@ hide:
 # Pulse
 
 <p class="tagline">
-  Batteries-included production observability for Spring Boot.
-  <br/>
+  Batteries-included production observability for Spring Boot.<br/>
   One dependency. Zero agents. Everything your default stack quietly forgets.
 </p>
 
@@ -94,15 +82,15 @@ id. Surfaced on the response, the active span, and as a metric.
 
 </div>
 
-## Below the fold
+## And 19 more subsystems
 
-Another layer for teams running **distributed systems at scale**: dependency
-health map, retry-amplification detection, request criticality, fleet
-config-drift, container-aware memory, Kafka time-based lag, multi-tenant
-context, SLO-as-code, OpenFeature correlation, N+1 detection, Resilience4j
-auto-instrumentation, and more.
+Below the fold sits another layer for teams running distributed systems at
+scale — dependency health map, retry-amplification detection, multi-tenant
+context, container-aware memory, Kafka time-based lag, SLO-as-code, N+1
+detection, Resilience4j auto-instrumentation, and more.
 
-Each subsystem is opt-in via `pulse.x.enabled`; you pay for what you turn on.
+Each is enabled by default and opt-out via `pulse.<subsystem>.enabled=false`.
+You pay for what you turn on.
 
 [See the full feature catalogue →](features/index.md){ .md-button }
 

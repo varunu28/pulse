@@ -12,22 +12,25 @@ copyright: Copyright &copy; Arun Gopalpuri — released under the MIT License
 theme:
   name: material
   logo: assets/pulse-logo.svg
-  favicon: assets/pulse-logo.svg
+  favicon: assets/favicon.svg
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
   font:
     text: Inter
     code: JetBrains Mono
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: deep purple
-      accent: deep purple
+      primary: teal
+      accent: cyan
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: deep purple
-      accent: deep purple
+      primary: teal
+      accent: cyan
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
@@ -78,15 +81,17 @@ markdown_extensions:
 plugins:
   - search
 
+extra_css:
+  - assets/pulse.css
+
 extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/arun0009/pulse
-    - icon: fontawesome/brands/java
+      name: Pulse on GitHub
+    - icon: simple/apachemaven
       link: https://central.sonatype.com/artifact/io.github.arun0009/pulse-spring-boot-starter
-  version:
-    provider: mike
-    default: stable
+      name: Pulse on Maven Central
 
 nav:
   - Home: index.md
@@ -134,8 +139,8 @@ nav:
       - Trace context missing: runbooks/trace-context-missing.md
       - Error-budget burn: runbooks/error-budget-burn.md
       - HikariCP saturation: runbooks/hikaricp-saturation.md
-  - Design notes:
-      - design/index.md
-      - Multi-tenant context: design/multi-tenant-context.md
-  - Release:
+  - Reference:
       - Changelog: release/changelog.md
+      - Design notes:
+          - design/index.md
+          - Multi-tenant context: design/multi-tenant-context.md
