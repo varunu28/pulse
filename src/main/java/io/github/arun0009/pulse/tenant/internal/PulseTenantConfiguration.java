@@ -1,6 +1,15 @@
-package io.github.arun0009.pulse.tenant;
+package io.github.arun0009.pulse.tenant.internal;
 
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
+import io.github.arun0009.pulse.tenant.HeaderTenantExtractor;
+import io.github.arun0009.pulse.tenant.JwtClaimTenantExtractor;
+import io.github.arun0009.pulse.tenant.SubdomainTenantExtractor;
+import io.github.arun0009.pulse.tenant.TenantContextFilter;
+import io.github.arun0009.pulse.tenant.TenantExtractor;
+import io.github.arun0009.pulse.tenant.TenantObservationFilter;
+import io.github.arun0009.pulse.tenant.TenantObservationRegistrar;
+import io.github.arun0009.pulse.tenant.TenantSortedExtractorsHolder;
+import io.github.arun0009.pulse.tenant.TenantTagCardinalityFilter;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.observation.ObservationRegistry;
 import jakarta.servlet.Filter;
@@ -107,7 +116,4 @@ public class PulseTenantConfiguration {
         // ObjectProvider.orderedStream() already honors @Order / Ordered.
         return new TenantSortedExtractorsHolder(extractors.orderedStream().toList());
     }
-
-    /** Tiny holder so code that wants the resolved order can inject one bean instead of a list. */
-    public record TenantSortedExtractorsHolder(List<TenantExtractor> extractors) {}
 }

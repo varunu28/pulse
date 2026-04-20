@@ -1,6 +1,8 @@
-package io.github.arun0009.pulse.priority;
+package io.github.arun0009.pulse.priority.internal;
 
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
+import io.github.arun0009.pulse.priority.RequestPriorityFilter;
+import io.github.arun0009.pulse.priority.RequestPriorityObservationFilter;
 import jakarta.servlet.Servlet;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;

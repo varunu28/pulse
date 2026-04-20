@@ -1,6 +1,7 @@
-package io.github.arun0009.pulse.resilience;
+package io.github.arun0009.pulse.resilience.internal;
 
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
+import io.github.arun0009.pulse.resilience.RetryDepthFilter;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.Filter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;

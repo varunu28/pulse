@@ -1,6 +1,7 @@
-package io.github.arun0009.pulse.openfeature;
+package io.github.arun0009.pulse.openfeature.internal;
 
 import dev.openfeature.sdk.OpenFeatureAPI;
+import io.github.arun0009.pulse.openfeature.PulseOpenFeatureMdcHook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;

@@ -1,4 +1,4 @@
-package io.github.arun0009.pulse.metrics;
+package io.github.arun0009.pulse.metrics.internal;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;

@@ -1,6 +1,11 @@
-package io.github.arun0009.pulse.propagation;
+package io.github.arun0009.pulse.propagation.internal;
 
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
+import io.github.arun0009.pulse.propagation.HeaderPropagation;
+import io.github.arun0009.pulse.propagation.KafkaConsumerTimeLagMetrics;
+import io.github.arun0009.pulse.propagation.KafkaPropagationContext;
+import io.github.arun0009.pulse.propagation.PulseKafkaProducerInterceptor;
+import io.github.arun0009.pulse.propagation.PulseKafkaRecordInterceptor;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;

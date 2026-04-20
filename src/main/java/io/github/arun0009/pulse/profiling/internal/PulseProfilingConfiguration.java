@@ -1,6 +1,9 @@
-package io.github.arun0009.pulse.profiling;
+package io.github.arun0009.pulse.profiling.internal;
 
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
+import io.github.arun0009.pulse.profiling.ProfilingRegistration;
+import io.github.arun0009.pulse.profiling.PulseProfilingSpanProcessor;
+import io.github.arun0009.pulse.profiling.PyroscopeDetector;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import org.slf4j.Logger;
@@ -32,7 +35,7 @@ import org.springframework.context.annotation.Configuration;
  * </ul>
  *
  * <p>The span processor is registered onto the running {@link OpenTelemetrySdk} via Spring
- * Boot's standard SDK auto-config — see {@link PulseProfilingConfiguration#registerWithSdk}.
+ * Boot's standard SDK auto-config — see {@code registerWithSdk} below.
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnClass(OpenTelemetrySdk.class)
@@ -95,7 +98,4 @@ public class PulseProfilingConfiguration {
         }
         return new ProfilingRegistration(detection);
     }
-
-    /** Marker bean kept on the context so Spring doesn't GC the registration object. */
-    public record ProfilingRegistration(PyroscopeDetector.Detection detection) {}
 }

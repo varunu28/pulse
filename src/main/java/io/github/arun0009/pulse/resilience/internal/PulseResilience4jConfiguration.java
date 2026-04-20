@@ -1,5 +1,8 @@
-package io.github.arun0009.pulse.resilience;
+package io.github.arun0009.pulse.resilience.internal;
 
+import io.github.arun0009.pulse.resilience.BulkheadObservation;
+import io.github.arun0009.pulse.resilience.CircuitBreakerObservation;
+import io.github.arun0009.pulse.resilience.RetryObservation;
 import io.github.resilience4j.bulkhead.BulkheadRegistry;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.retry.RetryRegistry;

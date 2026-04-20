@@ -1,5 +1,6 @@
-package io.github.arun0009.pulse.async;
+package io.github.arun0009.pulse.async.internal;
 
+import io.github.arun0009.pulse.async.PulseTaskDecorator;
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

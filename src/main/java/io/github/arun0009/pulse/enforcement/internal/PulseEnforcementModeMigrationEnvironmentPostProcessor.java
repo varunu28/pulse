@@ -1,4 +1,4 @@
-package io.github.arun0009.pulse.enforcement;
+package io.github.arun0009.pulse.enforcement.internal;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

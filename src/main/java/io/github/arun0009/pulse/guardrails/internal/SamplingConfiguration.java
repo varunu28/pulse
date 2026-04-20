@@ -1,6 +1,7 @@
-package io.github.arun0009.pulse.guardrails;
+package io.github.arun0009.pulse.guardrails.internal;
 
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
+import io.github.arun0009.pulse.guardrails.PreferErrorSampler;
 import io.opentelemetry.sdk.trace.samplers.Sampler;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;

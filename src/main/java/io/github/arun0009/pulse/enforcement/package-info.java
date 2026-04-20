@@ -3,5 +3,7 @@
  *
  * @see io.github.arun0009.pulse.enforcement.PulseEnforcementMode
  */
-@org.jspecify.annotations.NullMarked
+@NullMarked
 package io.github.arun0009.pulse.enforcement;
+
+import org.jspecify.annotations.NullMarked;

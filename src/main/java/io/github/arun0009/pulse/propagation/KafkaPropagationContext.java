@@ -23,7 +23,13 @@ public final class KafkaPropagationContext {
 
     private KafkaPropagationContext() {}
 
-    static synchronized void initialize(
+    /**
+     * Internal — called once at application startup by Pulse's Kafka autoconfig to bridge
+     * Spring-managed configuration into the Kafka-native ProducerInterceptor (which Kafka
+     * instantiates itself with a no-arg constructor and so cannot be Spring-injected).
+     * Applications should not call this directly.
+     */
+    public static synchronized void initialize(
             Map<String, String> headerToMdcKey, String timeoutBudgetHeader, @Nullable MeterRegistry meterRegistry) {
         KafkaPropagationContext.headerToMdcKey = Map.copyOf(headerToMdcKey);
         KafkaPropagationContext.timeoutBudgetHeader = timeoutBudgetHeader;

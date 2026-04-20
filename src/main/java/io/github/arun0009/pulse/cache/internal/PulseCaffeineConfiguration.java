@@ -1,4 +1,4 @@
-package io.github.arun0009.pulse.cache;
+package io.github.arun0009.pulse.cache.internal;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.micrometer.core.instrument.MeterRegistry;

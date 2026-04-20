@@ -1,8 +1,16 @@
-package io.github.arun0009.pulse.dependencies;
+package io.github.arun0009.pulse.dependencies.internal;
 
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
 import io.github.arun0009.pulse.autoconfigure.PulseRequestMatcherFactory;
 import io.github.arun0009.pulse.core.PulseRequestMatcher;
+import io.github.arun0009.pulse.dependencies.DependencyClassifier;
+import io.github.arun0009.pulse.dependencies.DependencyClientHttpInterceptor;
+import io.github.arun0009.pulse.dependencies.DependencyExchangeFilter;
+import io.github.arun0009.pulse.dependencies.DependencyHealthIndicator;
+import io.github.arun0009.pulse.dependencies.DependencyOkHttpInterceptor;
+import io.github.arun0009.pulse.dependencies.DependencyOutboundRecorder;
+import io.github.arun0009.pulse.dependencies.DependencyResolver;
+import io.github.arun0009.pulse.dependencies.RequestFanoutFilter;
 import io.micrometer.core.instrument.MeterRegistry;
 import okhttp3.OkHttpClient;
 import org.springframework.beans.factory.ObjectProvider;
@@ -26,7 +34,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 /**
  * Wires the dependency-health-map subsystem. Only the resolver and recorder are mandatory — every
  * transport's interceptor is gated on its client class being on the classpath, mirroring the
- * pattern used by {@link io.github.arun0009.pulse.propagation.RestTemplatePropagationConfiguration}
+ * pattern used by {@link io.github.arun0009.pulse.propagation.internal.RestTemplatePropagationConfiguration}
  * and friends so a worker app pays nothing for transports it does not use.
  *
  * <p>Each transport-specific bean is loaded from a nested static class with its own

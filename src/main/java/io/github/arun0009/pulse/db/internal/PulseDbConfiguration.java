@@ -1,8 +1,11 @@
-package io.github.arun0009.pulse.db;
+package io.github.arun0009.pulse.db.internal;
 
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
 import io.github.arun0009.pulse.autoconfigure.PulseRequestMatcherFactory;
 import io.github.arun0009.pulse.core.PulseRequestMatcher;
+import io.github.arun0009.pulse.db.PulseDbObservationFilter;
+import io.github.arun0009.pulse.db.PulseHibernatePropertiesCustomizer;
+import io.github.arun0009.pulse.db.PulseStatementInspector;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.Servlet;
 import org.hibernate.resource.jdbc.spi.StatementInspector;
