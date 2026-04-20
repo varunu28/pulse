@@ -5,6 +5,9 @@ import io.github.arun0009.pulse.dependencies.internal.PulseDependenciesConfigura
 import io.github.arun0009.pulse.logging.HostNameProvider;
 import io.github.arun0009.pulse.logging.ResourceAttributeResolver;
 import io.github.arun0009.pulse.metrics.internal.CommonTagsConfiguration;
+import io.github.arun0009.pulse.propagation.internal.RestClientPropagationConfiguration;
+import io.github.arun0009.pulse.propagation.internal.RestTemplatePropagationConfiguration;
+import io.github.arun0009.pulse.propagation.internal.WebClientPropagationConfiguration;
 import io.github.arun0009.pulse.resilience.RetryDepthFilter;
 import io.github.arun0009.pulse.resilience.internal.PulseRetryAmplificationConfiguration;
 import io.github.arun0009.pulse.tenant.TenantContextFilter;
@@ -15,9 +18,12 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.micrometer.metrics.autoconfigure.MeterRegistryCustomizer;
+import org.springframework.boot.restclient.RestClientCustomizer;
+import org.springframework.boot.restclient.RestTemplateCustomizer;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.boot.webclient.WebClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -145,6 +151,86 @@ class PulseBeanOverrideContractTest {
         }
     }
 
+    @Nested
+    class Propagation_customizers {
+
+        private final ApplicationContextRunner runner = new ApplicationContextRunner()
+                .withBean(MeterRegistry.class, SimpleMeterRegistry::new)
+                .withConfiguration(PULSE_BASE)
+                .withConfiguration(AutoConfigurations.of(
+                        RestTemplatePropagationConfiguration.class,
+                        RestClientPropagationConfiguration.class,
+                        WebClientPropagationConfiguration.class));
+
+        @Test
+        void user_supplied_rest_template_customizer_replaces_pulse_default() {
+            runner.withUserConfiguration(UserRestTemplateCustomizerConfig.class).run(context -> {
+                RestTemplateCustomizer customizer =
+                        context.getBean("pulseRestTemplateCustomizer", RestTemplateCustomizer.class);
+                assertThat(customizer).isSameAs(context.getBean(UserRestTemplateCustomizerConfig.class).marker);
+            });
+        }
+
+        @Test
+        void user_supplied_rest_client_customizer_replaces_pulse_default() {
+            runner.withUserConfiguration(UserRestClientCustomizerConfig.class).run(context -> {
+                RestClientCustomizer customizer =
+                        context.getBean("pulseRestClientCustomizer", RestClientCustomizer.class);
+                assertThat(customizer).isSameAs(context.getBean(UserRestClientCustomizerConfig.class).marker);
+            });
+        }
+
+        @Test
+        void user_supplied_web_client_customizer_replaces_pulse_default() {
+            runner.withUserConfiguration(UserWebClientCustomizerConfig.class).run(context -> {
+                WebClientCustomizer customizer = context.getBean("pulseWebClientCustomizer", WebClientCustomizer.class);
+                assertThat(customizer).isSameAs(context.getBean(UserWebClientCustomizerConfig.class).marker);
+            });
+        }
+    }
+
+    @Nested
+    class Dependency_customizers {
+
+        private final ApplicationContextRunner runner = new ApplicationContextRunner()
+                .withBean(MeterRegistry.class, SimpleMeterRegistry::new)
+                .withConfiguration(PULSE_BASE)
+                .withConfiguration(AutoConfigurations.of(PulseDependenciesConfiguration.class));
+
+        @Test
+        void user_supplied_dependency_rest_template_customizer_replaces_pulse_default() {
+            runner.withUserConfiguration(UserDependencyRestTemplateCustomizerConfig.class)
+                    .run(context -> {
+                        RestTemplateCustomizer customizer =
+                                context.getBean("pulseDependencyRestTemplateCustomizer", RestTemplateCustomizer.class);
+                        assertThat(customizer)
+                                .isSameAs(context.getBean(UserDependencyRestTemplateCustomizerConfig.class).marker);
+                    });
+        }
+
+        @Test
+        void user_supplied_dependency_rest_client_customizer_replaces_pulse_default() {
+            runner.withUserConfiguration(UserDependencyRestClientCustomizerConfig.class)
+                    .run(context -> {
+                        RestClientCustomizer customizer =
+                                context.getBean("pulseDependencyRestClientCustomizer", RestClientCustomizer.class);
+                        assertThat(customizer)
+                                .isSameAs(context.getBean(UserDependencyRestClientCustomizerConfig.class).marker);
+                    });
+        }
+
+        @Test
+        void user_supplied_dependency_web_client_customizer_replaces_pulse_default() {
+            runner.withUserConfiguration(UserDependencyWebClientCustomizerConfig.class)
+                    .run(context -> {
+                        WebClientCustomizer customizer =
+                                context.getBean("pulseDependencyWebClientCustomizer", WebClientCustomizer.class);
+                        assertThat(customizer)
+                                .isSameAs(context.getBean(UserDependencyWebClientCustomizerConfig.class).marker);
+                    });
+        }
+    }
+
     /* ---------- user-supplied configurations ---------- */
 
     @Configuration
@@ -210,6 +296,66 @@ class PulseBeanOverrideContractTest {
         @Bean
         public HostNameProvider hostNameProvider() {
             return host;
+        }
+    }
+
+    @Configuration
+    static class UserRestTemplateCustomizerConfig {
+        final RestTemplateCustomizer marker = restTemplate -> {};
+
+        @Bean
+        public RestTemplateCustomizer pulseRestTemplateCustomizer() {
+            return marker;
+        }
+    }
+
+    @Configuration
+    static class UserRestClientCustomizerConfig {
+        final RestClientCustomizer marker = builder -> {};
+
+        @Bean
+        public RestClientCustomizer pulseRestClientCustomizer() {
+            return marker;
+        }
+    }
+
+    @Configuration
+    static class UserWebClientCustomizerConfig {
+        final WebClientCustomizer marker = builder -> {};
+
+        @Bean
+        public WebClientCustomizer pulseWebClientCustomizer() {
+            return marker;
+        }
+    }
+
+    @Configuration
+    static class UserDependencyRestTemplateCustomizerConfig {
+        final RestTemplateCustomizer marker = restTemplate -> {};
+
+        @Bean
+        public RestTemplateCustomizer pulseDependencyRestTemplateCustomizer() {
+            return marker;
+        }
+    }
+
+    @Configuration
+    static class UserDependencyRestClientCustomizerConfig {
+        final RestClientCustomizer marker = builder -> {};
+
+        @Bean
+        public RestClientCustomizer pulseDependencyRestClientCustomizer() {
+            return marker;
+        }
+    }
+
+    @Configuration
+    static class UserDependencyWebClientCustomizerConfig {
+        final WebClientCustomizer marker = builder -> {};
+
+        @Bean
+        public WebClientCustomizer pulseDependencyWebClientCustomizer() {
+            return marker;
         }
     }
 }

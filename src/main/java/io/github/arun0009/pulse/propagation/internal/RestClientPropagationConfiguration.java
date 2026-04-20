@@ -11,6 +11,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.MDC;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.restclient.RestClientCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -36,6 +37,7 @@ public class RestClientPropagationConfiguration {
     static class Beans {
 
         @Bean
+        @ConditionalOnMissingBean(name = "pulseRestClientCustomizer")
         public RestClientCustomizer pulseRestClientCustomizer(
                 ContextProperties context, RetryProperties retry, PriorityProperties priority) {
             Map<String, String> headerMap = HeaderPropagation.headerToMdcKey(context, retry, priority);
@@ -54,6 +56,7 @@ public class RestClientPropagationConfiguration {
         }
 
         @Bean
+        @ConditionalOnMissingBean(name = "pulseTimeoutBudgetRestClientCustomizer")
         @ConditionalOnProperty(
                 prefix = "pulse.timeout-budget",
                 name = "enabled",

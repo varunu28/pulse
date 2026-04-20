@@ -40,6 +40,7 @@ public class OkHttpPropagationConfiguration {
     static class Beans {
 
         @Bean
+        @ConditionalOnMissingBean(name = "pulseOkHttpBuilderInstrumenter")
         public BeanPostProcessor pulseOkHttpBuilderInstrumenter(
                 ContextProperties context,
                 RetryProperties retry,

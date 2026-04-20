@@ -64,6 +64,7 @@ public class KafkaPropagationConfiguration {
     static class Beans {
 
         @Bean
+        @ConditionalOnMissingBean(name = "pulseKafkaPropagationContextInitializer")
         public KafkaPropagationContextInitializer pulseKafkaPropagationContextInitializer(
                 ContextProperties context,
                 RetryProperties retry,
@@ -75,6 +76,7 @@ public class KafkaPropagationConfiguration {
         }
 
         @Bean
+        @ConditionalOnMissingBean(name = "pulseProducerFactoryCustomizer")
         @DependsOn("pulseKafkaPropagationContextInitializer")
         public ProducerFactoryCustomizer pulseProducerFactoryCustomizer() {
             return new ProducerFactoryCustomizer();
@@ -113,6 +115,7 @@ public class KafkaPropagationConfiguration {
          */
         @Bean
         @Primary
+        @ConditionalOnMissingBean(name = "pulseRecordInterceptorComposite")
         public RecordInterceptor<Object, Object> pulseRecordInterceptorComposite(
                 PulseKafkaRecordInterceptor pulseInterceptor,
                 List<RecordInterceptor<Object, Object>> userInterceptors) {

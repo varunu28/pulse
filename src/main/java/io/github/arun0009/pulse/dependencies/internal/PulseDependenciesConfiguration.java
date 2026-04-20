@@ -134,6 +134,7 @@ public class PulseDependenciesConfiguration {
     @ConditionalOnClass({RestTemplate.class, RestTemplateCustomizer.class})
     static class RestTemplateBeans {
         @Bean
+        @ConditionalOnMissingBean(name = "pulseDependencyRestTemplateCustomizer")
         public RestTemplateCustomizer pulseDependencyRestTemplateCustomizer(DependencyOutboundRecorder recorder) {
             DependencyClientHttpInterceptor interceptor = new DependencyClientHttpInterceptor(recorder);
             return restTemplate -> restTemplate.getInterceptors().add(interceptor);
@@ -144,6 +145,7 @@ public class PulseDependenciesConfiguration {
     @ConditionalOnClass({RestClient.class, RestClientCustomizer.class})
     static class RestClientBeans {
         @Bean
+        @ConditionalOnMissingBean(name = "pulseDependencyRestClientCustomizer")
         public RestClientCustomizer pulseDependencyRestClientCustomizer(DependencyOutboundRecorder recorder) {
             DependencyClientHttpInterceptor interceptor = new DependencyClientHttpInterceptor(recorder);
             return builder -> builder.requestInterceptor(interceptor);
@@ -154,6 +156,7 @@ public class PulseDependenciesConfiguration {
     @ConditionalOnClass({WebClient.class, WebClientCustomizer.class})
     static class WebClientBeans {
         @Bean
+        @ConditionalOnMissingBean(name = "pulseDependencyWebClientCustomizer")
         public WebClientCustomizer pulseDependencyWebClientCustomizer(DependencyOutboundRecorder recorder) {
             return builder -> builder.filter(DependencyExchangeFilter.filter(recorder));
         }
@@ -163,6 +166,7 @@ public class PulseDependenciesConfiguration {
     @ConditionalOnClass(OkHttpClient.class)
     static class OkHttpBeans {
         @Bean
+        @ConditionalOnMissingBean(name = "pulseDependencyOkHttpInstrumenter")
         public BeanPostProcessor pulseDependencyOkHttpInstrumenter(
                 ObjectProvider<DependencyOutboundRecorder> recorder) {
             // BPP keeps recorder resolution lazy so it can be created alongside MeterRegistry.

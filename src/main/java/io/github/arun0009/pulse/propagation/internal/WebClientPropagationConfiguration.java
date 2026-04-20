@@ -12,6 +12,7 @@ import org.slf4j.MDC;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.webclient.WebClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,6 +39,7 @@ public class WebClientPropagationConfiguration {
     static class Beans {
 
         @Bean
+        @ConditionalOnMissingBean(name = "pulseWebClientCustomizer")
         public WebClientCustomizer pulseWebClientCustomizer(
                 ContextProperties context,
                 RetryProperties retry,
