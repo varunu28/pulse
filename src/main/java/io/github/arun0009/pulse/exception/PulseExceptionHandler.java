@@ -74,7 +74,11 @@ public class PulseExceptionHandler {
             return baselineProblem(null);
         }
 
-        String fingerprint = fingerprintStrategy.fingerprint(ex);
+        String chainResult = fingerprintStrategy.fingerprint(ex);
+        // Defensive: the wired strategy is normally the chain composite, which terminates in
+        // ExceptionFingerprint.of(...) and is guaranteed non-null. We still coalesce here so a
+        // misconfigured deployment that removed the terminal link doesn't crash the handler.
+        String fingerprint = chainResult != null ? chainResult : ExceptionFingerprint.of(ex);
         MDC.put(FINGERPRINT_MDC_KEY, fingerprint);
 
         Span span = Span.current();

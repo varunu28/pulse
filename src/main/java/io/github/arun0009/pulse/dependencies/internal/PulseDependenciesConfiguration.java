@@ -15,6 +15,7 @@ import io.github.arun0009.pulse.dependencies.RequestFanoutFilter;
 import io.micrometer.core.instrument.MeterRegistry;
 import okhttp3.OkHttpClient;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -28,10 +29,14 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.boot.webclient.WebClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
+
+import java.util.List;
 
 /**
  * Wires the dependency-health-map subsystem. Only the resolver and recorder are mandatory — every
@@ -53,20 +58,38 @@ public class PulseDependenciesConfiguration {
         return new DependencyResolver(properties);
     }
 
+    /**
+     * Host-table {@link DependencyResolver} registered as the <strong>terminal</strong> link in
+     * the {@link DependencyClassifier} chain. Returns the configured
+     * {@code pulse.dependencies.default-name} when no upstream classifier matched, so the
+     * composite never returns {@code null} on a real call.
+     *
+     * <p>Marked {@link Order @Order(LOWEST_PRECEDENCE)} so any user-supplied
+     * {@link DependencyClassifier} bean (default order) gets a chance first.
+     */
     @Bean
-    @ConditionalOnMissingBean
-    public DependencyClassifier pulseDependencyClassifier(DependencyResolver resolver) {
-        // Default classifier IS the host-table resolver. Users override the whole strategy by
-        // declaring their own DependencyClassifier @Bean — host-table fallback is theirs to
-        // delegate to or replace.
+    @Order(Ordered.LOWEST_PRECEDENCE)
+    public DependencyClassifier pulseDependencyHostTableClassifier(DependencyResolver resolver) {
         return resolver;
+    }
+
+    /**
+     * Composite that walks every {@link DependencyClassifier} bean in {@code @Order} sequence
+     * and returns the first non-null classification. This is the bean every downstream
+     * recorder / interceptor injects; user-supplied classifiers participate by simply being
+     * declared as Spring beans.
+     */
+    @Bean
+    @Primary
+    public DependencyClassifier pulseDependencyClassifier(List<DependencyClassifier> chain) {
+        return new CompositeDependencyClassifier(chain);
     }
 
     @Bean
     @ConditionalOnMissingBean
     public DependencyOutboundRecorder pulseDependencyOutboundRecorder(
             MeterRegistry registry,
-            DependencyClassifier classifier,
+            @Qualifier("pulseDependencyClassifier") DependencyClassifier classifier,
             DependencyResolver resolver,
             DependenciesProperties properties,
             ObjectProvider<PulseRequestMatcherFactory> matcherFactory) {

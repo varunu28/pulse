@@ -1,51 +1,74 @@
 package io.github.arun0009.pulse.dependencies;
 
+import org.jspecify.annotations.Nullable;
+
 import java.net.URI;
 
 /**
  * Maps an outbound URI (or raw host) to the logical {@code dep} tag value used on every
  * {@code pulse.dependency.*} meter.
  *
- * <p>Pulse's default classifier is {@link DependencyResolver}, which resolves the host through
- * the {@code pulse.dependencies.map} table (exact + leading-dot suffix) and falls back to
- * {@code pulse.dependencies.default-name} on no match. That covers most teams.
+ * <h2>Chain-of-responsibility (since 2.0)</h2>
  *
- * <p>When the host-based table isn't enough — wildcard regions ({@code us-*.payments.internal}
- * → {@code payment-service}), URL-path-aware classification ({@code /api/v1/payments/*} →
- * {@code payment-api-v1} regardless of host), or pulling the name from request headers your
- * gateway already stamps — publish a single bean implementing this interface. Pulse will
- * consult it for every transport (RestTemplate, RestClient, WebClient, OkHttp, Kafka) and you
- * keep the rest of the dependency observability stack (RED metrics, fan-out, dependency-health
- * indicator) untouched.
+ * <p>Pulse 2.0 removes the "single bean replaces everything" model and treats every
+ * {@code DependencyClassifier} bean in the application context as one link in an ordered
+ * chain. For each call:
+ *
+ * <ol>
+ *   <li>Spring sorts every {@code DependencyClassifier} bean by {@link
+ *       org.springframework.core.annotation.Order @Order} (lower = earlier; default is
+ *       {@link org.springframework.core.Ordered#LOWEST_PRECEDENCE}).
+ *   <li>The composite calls {@link #classify(URI)} on each in turn.
+ *   <li>The first non-{@code null} result wins.
+ *   <li>If every link returns {@code null}, the host-table {@link DependencyResolver}
+ *       (registered as the terminal classifier) returns the configured
+ *       {@code pulse.dependencies.default-name}.
+ * </ol>
+ *
+ * <p>This means a custom classifier can be <em>additive</em> rather than total: only override
+ * the cases you care about and return {@code null} otherwise. Pre-2.0 implementations that
+ * returned a non-null value for every input still work — they simply always win the chain
+ * race when registered earlier than the terminal resolver.
+ *
+ * <h2>Examples</h2>
+ *
+ * <p>Path-aware classifier that participates in the chain (returns {@code null} to delegate):
  *
  * <pre>
  * &#064;Bean
- * DependencyClassifier customClassifier(DependencyResolver fallback) {
+ * &#064;Order(0)
+ * DependencyClassifier paymentApiClassifier() {
  *     return new DependencyClassifier() {
  *         &#064;Override public String classify(URI uri) {
  *             if (uri.getPath() != null &amp;&amp; uri.getPath().startsWith("/api/v1/payments/")) {
  *                 return "payment-api-v1";
  *             }
- *             return fallback.resolve(uri);
+ *             return null;
  *         }
  *         &#064;Override public String classifyHost(String host) {
- *             return fallback.resolveHost(host);
+ *             return null;
  *         }
  *     };
  * }
  * </pre>
  *
- * <p>Implementations must be cheap (called on every outbound call), thread-safe, and must never
- * throw — return the {@code default-name} on failure so cardinality stays bounded even if the
- * classifier hits an edge case.
+ * <p>Implementations must be cheap (called on every outbound call), thread-safe, and must
+ * never throw — return {@code null} on failure so the next link gets a chance and cardinality
+ * stays bounded even if the classifier hits an edge case.
  *
- * @since 1.1.0
+ * @since 1.1.0 (chain semantics added in 2.0.0)
  */
 public interface DependencyClassifier {
 
-    /** Returns the logical {@code dep} tag for an outbound URI. Never {@code null}. */
-    String classify(URI uri);
+    /**
+     * Returns the logical {@code dep} tag for an outbound URI, or {@code null} to delegate to
+     * the next classifier in the chain.
+     */
+    @Nullable String classify(URI uri);
 
-    /** Returns the logical {@code dep} tag from a raw host string (used by Kafka + OkHttp). Never {@code null}. */
-    String classifyHost(String host);
+    /**
+     * Returns the logical {@code dep} tag from a raw host string (used by Kafka + OkHttp), or
+     * {@code null} to delegate to the next classifier in the chain.
+     */
+    @Nullable String classifyHost(String host);
 }

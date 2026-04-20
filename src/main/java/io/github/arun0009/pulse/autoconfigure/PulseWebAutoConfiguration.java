@@ -13,6 +13,7 @@ import io.github.arun0009.pulse.enforcement.PulseEnforcementMode;
 import io.github.arun0009.pulse.exception.ErrorFingerprintStrategy;
 import io.github.arun0009.pulse.exception.ExceptionHandlerProperties;
 import io.github.arun0009.pulse.exception.PulseExceptionHandler;
+import io.github.arun0009.pulse.exception.internal.CompositeErrorFingerprintStrategy;
 import io.github.arun0009.pulse.guardrails.TimeoutBudgetFilter;
 import io.github.arun0009.pulse.guardrails.TimeoutBudgetProperties;
 import io.github.arun0009.pulse.slo.SloRuleGenerator;
@@ -20,6 +21,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.Filter;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.autoconfigure.endpoint.condition.ConditionalOnAvailableEndpoint;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -28,6 +30,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 
 import java.util.List;
 
@@ -88,10 +93,28 @@ public class PulseWebAutoConfiguration {
         return new TimeoutBudgetFilter(properties, gate);
     }
 
+    /**
+     * Built-in SHA-256 fingerprint strategy registered as the <strong>terminal</strong> link in
+     * the {@link ErrorFingerprintStrategy} chain. Marked {@link Order @Order(LOWEST_PRECEDENCE)}
+     * so any user-supplied strategy bean (default order) gets a chance first; this link
+     * guarantees the chain composite never returns {@code null}.
+     */
     @Bean
-    @ConditionalOnMissingBean
-    public ErrorFingerprintStrategy pulseErrorFingerprintStrategy() {
+    @Order(Ordered.LOWEST_PRECEDENCE)
+    public ErrorFingerprintStrategy pulseDefaultErrorFingerprintStrategy() {
         return ErrorFingerprintStrategy.DEFAULT;
+    }
+
+    /**
+     * Composite that walks every {@link ErrorFingerprintStrategy} bean in {@code @Order}
+     * sequence and returns the first non-null fingerprint. This is the bean
+     * {@link PulseExceptionHandler} actually injects; user-supplied strategies participate by
+     * being declared as Spring beans.
+     */
+    @Bean
+    @Primary
+    public ErrorFingerprintStrategy pulseErrorFingerprintStrategy(List<ErrorFingerprintStrategy> chain) {
+        return new CompositeErrorFingerprintStrategy(chain);
     }
 
     @Bean
@@ -103,7 +126,7 @@ public class PulseWebAutoConfiguration {
             matchIfMissing = true)
     public PulseExceptionHandler pulseExceptionHandler(
             ObjectProvider<MeterRegistry> registry,
-            ErrorFingerprintStrategy fingerprintStrategy,
+            @Qualifier("pulseErrorFingerprintStrategy") ErrorFingerprintStrategy fingerprintStrategy,
             ExceptionHandlerProperties properties,
             PulseRequestMatcherFactory matcherFactory) {
         PulseRequestMatcher gate = matcherFactory.build("exception-handler", properties.enabledWhen());

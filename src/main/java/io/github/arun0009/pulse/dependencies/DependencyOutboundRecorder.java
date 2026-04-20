@@ -11,6 +11,7 @@ import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.net.URI;
 import java.time.Duration;
 
 /**
@@ -65,6 +66,10 @@ public final class DependencyOutboundRecorder {
     /**
      * Returns the active {@link DependencyClassifier}. Used by every transport interceptor to
      * resolve the {@code dep} tag value before recording.
+     *
+     * <p>In Pulse 2.0+ this is a chain composite — callers should prefer
+     * {@link #classify(URI)} / {@link #classifyHost(String)} below, which apply the
+     * {@code default-name} fallback when every link returns {@code null}.
      */
     public DependencyClassifier classifier() {
         return classifier;
@@ -72,11 +77,27 @@ public final class DependencyOutboundRecorder {
 
     /**
      * Returns the built-in host-table resolver. Kept for backward compatibility; new code
-     * should prefer {@link #classifier()} so a user-supplied {@link DependencyClassifier} bean
-     * takes effect.
+     * should prefer {@link #classify(URI)} so a user-supplied {@link DependencyClassifier}
+     * chain takes effect.
      */
     public DependencyResolver resolver() {
         return resolver;
+    }
+
+    /**
+     * Classifies a URI against the chain and applies the {@code pulse.dependencies.default-name}
+     * fallback if every link returned {@code null}. The result is guaranteed non-null and is
+     * the value every transport interceptor uses for the {@code dep} tag.
+     */
+    public String classify(URI uri) {
+        String dep = classifier.classify(uri);
+        return dep != null ? dep : resolver.defaultName();
+    }
+
+    /** Host-string variant of {@link #classify(URI)} for transports without a full URI (Kafka, OkHttp). */
+    public String classifyHost(String host) {
+        String dep = classifier.classifyHost(host);
+        return dep != null ? dep : resolver.defaultName();
     }
 
     /**
