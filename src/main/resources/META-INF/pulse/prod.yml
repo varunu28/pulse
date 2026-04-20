@@ -1,0 +1,61 @@
+# Pulse — production preset.
+#
+# Activate by adding to your application.yml (or profile-specific file):
+#
+#     spring.config.import: classpath:META-INF/pulse/prod.yml
+#
+# Optimised for: low overhead, strict guardrails, paranoid defaults.
+# Trades: 10% trace sampling (set to 1.0 for short bursts during incident response).
+
+pulse:
+  runtime:
+    mode: ENFORCING
+
+  # 10% sampling, but the error-biased sampler still upgrades any erroring span
+  # to sampled — so you keep full coverage on what matters at 1/10th the cost.
+  sampling:
+    probability: 0.10
+    prefer-sampling-on-error: true
+
+  # Observe missing trace context, but never reject — propagation gaps must
+  # never become customer-visible 500s.
+  trace-guard:
+    enabled: true
+    fail-on-missing: false
+
+  cardinality:
+    enabled: true
+    max-tag-values-per-meter: 1000
+
+  timeout-budget:
+    enabled: true
+    default-budget: 2s
+    maximum-budget: 30s
+
+  # Drop stack traces from RFC 7807 responses — they leak internals.
+  exception-handler:
+    enabled: true
+
+  banner:
+    enabled: false
+
+  # PII masking is non-negotiable in prod.
+  logging:
+    pii-masking-enabled: true
+
+  # Default fan-out warning at 20 outbound calls per inbound — tighten if
+  # your service is naturally low fan-out.
+  dependencies:
+    enabled: true
+    fan-out-warn-threshold: 20
+
+  # Strict tenant cardinality — multi-tenant SaaS often runs at 100s of
+  # tenants but the metric tag must be capped to keep Prometheus happy.
+  tenant:
+    enabled: true
+    max-tag-cardinality: 100
+
+  # OTel exporter health is a real signal in prod — flag stalls promptly.
+  health:
+    otel-exporter-enabled: true
+    otel-exporter-stale-after: 5m
