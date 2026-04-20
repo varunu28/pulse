@@ -99,6 +99,7 @@ nav:
   - Concepts:
       - Overview: concepts.md
       - Web stack (Servlet-only): web-stack.md
+      - Extending Pulse (SPIs): spi.md
   - Features:
       - features/index.md
       - Cross-cutting:
