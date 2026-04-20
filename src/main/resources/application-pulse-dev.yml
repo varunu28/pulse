@@ -15,9 +15,9 @@ pulse:
   enforcement:
     mode: ENFORCING
 
-  # 100% trace sampling — dev volumes are tiny and you want every span.
+  # Pulse's additive error bias — see the standard Boot property below for the
+  # head sampling rate.
   sampling:
-    probability: 1.0
     prefer-sampling-on-error: true
 
   # Don't reject locally-issued requests just because curl forgot traceparent.
@@ -51,3 +51,11 @@ pulse:
   # PII masking on even in dev — catch leaks early, don't surprise prod.
   logging:
     pii-masking-enabled: true
+
+# 100% trace sampling — dev volumes are tiny and you want every span. The head
+# rate is the standard Spring Boot property; Pulse only contributes its
+# additive error-bias wrapper above.
+management:
+  tracing:
+    sampling:
+      probability: 1.0

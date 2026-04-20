@@ -37,7 +37,15 @@ import java.io.IOException;
 public final class RetryDepthFilter extends OncePerRequestFilter implements Ordered {
 
     public static final String MDC_KEY = ContextKeys.RETRY_DEPTH;
-    public static final int ORDER = PulseRequestContextFilter.ORDER + 20;
+
+    /**
+     * Last of the context-enrichment filters (+40) before TraceGuard (+50) terminates the
+     * cluster. Placing this here means {@code retryDepth} is visible on the missing-trace
+     * WARN TraceGuard emits — a retry storm that also drops traceparent is a very specific
+     * signal that points to a broken middlebox, and keeping both fields on the same log
+     * line is what makes the correlation jump out.
+     */
+    public static final int ORDER = PulseRequestContextFilter.ORDER + 40;
 
     private static final Logger log = LoggerFactory.getLogger(RetryDepthFilter.class);
 

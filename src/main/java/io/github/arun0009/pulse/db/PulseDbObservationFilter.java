@@ -164,7 +164,7 @@ public class PulseDbObservationFilter extends OncePerRequestFilter implements Or
      */
     private static String sanitize(String path) {
         if (path == null || path.isEmpty()) return "/";
-        String[] parts = path.split("/");
+        String[] parts = path.split("/", -1);
         StringBuilder sb = new StringBuilder(path.length());
         for (String part : parts) {
             if (part.isEmpty()) {

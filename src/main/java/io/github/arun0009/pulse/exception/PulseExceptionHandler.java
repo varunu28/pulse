@@ -54,19 +54,13 @@ public class PulseExceptionHandler {
     private final PulseRequestMatcher gate;
     private final Tracer tracer;
 
-    public PulseExceptionHandler() {
-        this(null);
-    }
-
-    public PulseExceptionHandler(@Nullable MeterRegistry registry) {
-        this(registry, ErrorFingerprintStrategy.DEFAULT, PulseRequestMatcher.ALWAYS);
-    }
-
-    public PulseExceptionHandler(
-            @Nullable MeterRegistry registry, ErrorFingerprintStrategy fingerprintStrategy, PulseRequestMatcher gate) {
-        this(registry, fingerprintStrategy, gate, Tracer.NOOP);
-    }
-
+    /**
+     * Single primary constructor. Callers that want the pre-2.0 defaults should pass
+     * {@code null} for {@code registry}, {@link ErrorFingerprintStrategy#DEFAULT},
+     * {@link PulseRequestMatcher#ALWAYS}, and {@link Tracer#NOOP}. Auto-config builds the
+     * production wiring; tests that need minimal setup can use
+     * {@link #withDefaults(MeterRegistry)}.
+     */
     public PulseExceptionHandler(
             @Nullable MeterRegistry registry,
             ErrorFingerprintStrategy fingerprintStrategy,
@@ -76,6 +70,17 @@ public class PulseExceptionHandler {
         this.fingerprintStrategy = fingerprintStrategy;
         this.gate = gate;
         this.tracer = tracer == null ? Tracer.NOOP : tracer;
+    }
+
+    /**
+     * Test factory that materialises the pre-2.0 default wiring — {@link ErrorFingerprintStrategy#DEFAULT},
+     * {@link PulseRequestMatcher#ALWAYS}, and {@link Tracer#NOOP} — around an optional
+     * {@link MeterRegistry}. Keeps test code terse without bloating the class with multiple
+     * convenience constructors.
+     */
+    public static PulseExceptionHandler withDefaults(@Nullable MeterRegistry registry) {
+        return new PulseExceptionHandler(
+                registry, ErrorFingerprintStrategy.DEFAULT, PulseRequestMatcher.ALWAYS, Tracer.NOOP);
     }
 
     @ExceptionHandler(Exception.class)

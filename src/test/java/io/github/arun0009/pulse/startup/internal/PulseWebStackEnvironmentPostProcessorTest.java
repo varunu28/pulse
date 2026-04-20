@@ -43,7 +43,10 @@ class PulseWebStackEnvironmentPostProcessorTest {
         coreLogger = (org.apache.logging.log4j.core.Logger) LogManager.getLogger(LOGGER_NAME);
         coreLogger.addAppender(appender);
         coreLogger.setLevel(Level.ALL);
-        coreLogger.setAdditive(true);
+        // Non-additive: the WARN belongs to the test appender only. With additivity the banner
+        // would propagate to the parent console appender and spam every mvn test run with a
+        // false "PULSE web-stack mismatch" — misleading, because production apps never hit it.
+        coreLogger.setAdditive(false);
     }
 
     @AfterEach

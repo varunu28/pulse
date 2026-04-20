@@ -70,13 +70,12 @@ class ResourceAttributeResolverExtensionTest {
 
         @Test
         void subclass_can_replace_host_name_resolution_only() {
-            ResourceAttributeResolver resolver =
-                    new ResourceAttributeResolver(name -> null, name -> null, path -> null, () -> null) {
-                        @Override
-                        protected @Nullable String hostName() {
-                            return "from-ec2-metadata";
-                        }
-                    };
+            ResourceAttributeResolver resolver = new ResourceAttributeResolver(name -> null, path -> null, () -> null) {
+                @Override
+                protected @Nullable String hostName() {
+                    return "from-ec2-metadata";
+                }
+            };
 
             assertThat(resolver.resolveAll())
                     .as("only hostName() is overridden; the rest of the chain still runs and yields nothing")
@@ -98,7 +97,7 @@ class ResourceAttributeResolverExtensionTest {
         }
 
         CustomAttributesResolver(Map<String, String> extras, HostNameProvider hostName) {
-            super(envOf(), sysPropOf(), fileReaderOf(), hostName);
+            super(envOf(), fileReaderOf(), hostName);
             this.extras = extras;
         }
 
@@ -112,10 +111,6 @@ class ResourceAttributeResolverExtensionTest {
         }
 
         private static Function<String, @Nullable String> envOf() {
-            return name -> null;
-        }
-
-        private static Function<String, @Nullable String> sysPropOf() {
             return name -> null;
         }
 

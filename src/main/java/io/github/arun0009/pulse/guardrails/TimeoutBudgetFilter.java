@@ -1,5 +1,6 @@
 package io.github.arun0009.pulse.guardrails;
 
+import io.github.arun0009.pulse.core.PulseRequestContextFilter;
 import io.github.arun0009.pulse.core.PulseRequestMatcher;
 import io.opentelemetry.api.baggage.Baggage;
 import io.opentelemetry.context.Context;
@@ -36,7 +37,13 @@ import java.util.Optional;
  */
 public class TimeoutBudgetFilter extends OncePerRequestFilter implements Ordered {
 
-    public static final int ORDER = Ordered.HIGHEST_PRECEDENCE + 50;
+    /**
+     * Anchored to {@link PulseRequestContextFilter#ORDER} so the MDC keys and request id are
+     * populated before TimeoutBudget emits any WARN. Running before RequestContext would strip
+     * the request/trace ids from every deadline-breach log line, defeating the "every log
+     * correlates" guarantee Pulse sells.
+     */
+    public static final int ORDER = PulseRequestContextFilter.ORDER + 10;
 
     private static final Logger log = LoggerFactory.getLogger(TimeoutBudgetFilter.class);
 

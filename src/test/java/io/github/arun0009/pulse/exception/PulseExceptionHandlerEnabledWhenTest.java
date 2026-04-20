@@ -4,6 +4,7 @@ import io.github.arun0009.pulse.core.ContextKeys;
 import io.github.arun0009.pulse.core.PulseRequestMatcher;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.tracing.Tracer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +40,7 @@ class PulseExceptionHandlerEnabledWhenTest {
     void rejecting_matcher_returns_baseline_problem_without_fingerprint_or_metric() {
         MeterRegistry registry = new SimpleMeterRegistry();
         PulseExceptionHandler handler =
-                new PulseExceptionHandler(registry, ErrorFingerprintStrategy.DEFAULT, request -> false);
+                new PulseExceptionHandler(registry, ErrorFingerprintStrategy.DEFAULT, request -> false, Tracer.NOOP);
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/synthetic");
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
@@ -61,8 +62,8 @@ class PulseExceptionHandlerEnabledWhenTest {
     @Test
     void accepting_matcher_behaves_exactly_like_pre_1_1() {
         MeterRegistry registry = new SimpleMeterRegistry();
-        PulseExceptionHandler handler =
-                new PulseExceptionHandler(registry, ErrorFingerprintStrategy.DEFAULT, PulseRequestMatcher.ALWAYS);
+        PulseExceptionHandler handler = new PulseExceptionHandler(
+                registry, ErrorFingerprintStrategy.DEFAULT, PulseRequestMatcher.ALWAYS, Tracer.NOOP);
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/orders");
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
@@ -76,8 +77,8 @@ class PulseExceptionHandlerEnabledWhenTest {
     @Test
     void custom_fingerprint_strategy_is_used_when_active() {
         MeterRegistry registry = new SimpleMeterRegistry();
-        PulseExceptionHandler handler =
-                new PulseExceptionHandler(registry, throwable -> "sentry-event-42", PulseRequestMatcher.ALWAYS);
+        PulseExceptionHandler handler = new PulseExceptionHandler(
+                registry, throwable -> "sentry-event-42", PulseRequestMatcher.ALWAYS, Tracer.NOOP);
 
         ProblemDetail problem = handler.handle(new IllegalStateException("boom"));
 

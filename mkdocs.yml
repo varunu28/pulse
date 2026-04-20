@@ -100,6 +100,7 @@ nav:
       - Overview: concepts.md
       - Web stack (Servlet-only): web-stack.md
       - Extending Pulse (SPIs): spi.md
+      - API stability: api-stability.md
   - Features:
       - features/index.md
       - Cross-cutting:

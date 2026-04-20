@@ -75,6 +75,34 @@ pulse:
     enabled: false
 ```
 
+## Extending via `ObservationHandler`
+
+Every signal the wide-event API emits is an
+`ObservationHandler<PulseEventContext>` bean — `PulseEventCounterObservationHandler`,
+`PulseEventSpanObservationHandler`, `PulseEventLoggingObservationHandler`.
+Publish your own handler bean and Spring Boot's
+`ObservationAutoConfiguration` attaches it to the application's
+`ObservationRegistry`, where Pulse emits every wide event:
+
+```java
+@Bean
+ObservationHandler<PulseEventContext> sentryBreadcrumbHandler() {
+    return new ObservationHandler<>() {
+        @Override public void onStop(PulseEventContext ctx) {
+            Sentry.addBreadcrumb(Breadcrumb.from(Map.of(
+                "event", ctx.eventName(),
+                "attrs", ctx.attributes())));
+        }
+        @Override public boolean supportsContext(Observation.Context c) {
+            return c instanceof PulseEventContext;
+        }
+    };
+}
+```
+
+Typical extension targets: Sentry breadcrumbs, audit-log to Kafka,
+business-event router, Slack alert on high-severity events.
+
 ---
 
 **Source:** [`SpanEvents.java`](https://github.com/arun0009/pulse/blob/main/src/main/java/io/github/arun0009/pulse/events/SpanEvents.java) ·

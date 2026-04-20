@@ -91,34 +91,11 @@ public final class PulseDiagnostics {
     private final @Nullable ResourceAttributeResolver resourceAttributeResolver;
 
     /**
-     * Convenience constructor for tests. The sampling probability defaults to {@code 1.0}.
-     */
-    public PulseDiagnostics(
-            AllProperties p,
-            String serviceName,
-            String environment,
-            String version,
-            @Nullable CardinalityFirewall cardinalityFirewall,
-            @Nullable SloProjector sloProjector,
-            @Nullable JobRegistry jobRegistry,
-            @Nullable PulseEnforcementMode enforcementMode) {
-        this(
-                p,
-                serviceName,
-                environment,
-                version,
-                1.0,
-                cardinalityFirewall,
-                sloProjector,
-                jobRegistry,
-                enforcementMode,
-                null);
-    }
-
-    /**
-     * Production constructor. {@code samplingProbability} is sourced from
+     * Single primary constructor. {@code samplingProbability} is sourced from
      * {@code management.tracing.sampling.probability} — Pulse defers to Spring Boot's standard
-     * head-sampling property rather than shadowing it with a {@code pulse.*} alias.
+     * head-sampling property rather than shadowing it with a {@code pulse.*} alias. Tests that do
+     * not need every runtime projection should pass {@code null} for the optional fields and
+     * {@code 1.0} for the sampling probability.
      */
     public PulseDiagnostics(
             AllProperties p,
@@ -143,7 +120,11 @@ public final class PulseDiagnostics {
         this.resourceAttributeResolver = resourceAttributeResolver;
     }
 
-    /** @return the head sampling probability sourced from {@code management.tracing.sampling.probability}. */
+    /**
+     * Returns the head sampling probability sourced from {@code management.tracing.sampling.probability}.
+     *
+     * @return the head sampling probability in {@code [0.0, 1.0]}.
+     */
     public double samplingProbability() {
         return samplingProbability;
     }

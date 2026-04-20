@@ -1,8 +1,8 @@
 package io.github.arun0009.pulse.logging;
 
 import org.jspecify.annotations.Nullable;
+import org.springframework.boot.EnvironmentPostProcessor;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.Ordered;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.io.support.SpringFactoriesLoader;
@@ -249,7 +249,7 @@ public final class PulseLoggingEnvironmentPostProcessor implements EnvironmentPo
      */
     @Nullable static String parseOtelAttribute(@Nullable String raw, String attributeKey) {
         if (raw == null || raw.isBlank()) return null;
-        for (String pair : raw.split(",")) {
+        for (String pair : raw.split(",", -1)) {
             int eq = pair.indexOf('=');
             if (eq <= 0) continue;
             String k = pair.substring(0, eq).trim();

@@ -7,7 +7,6 @@ import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -37,7 +36,7 @@ public final class CompositeDependencyClassifier implements DependencyClassifier
         // DependencyResolver bean and as the terminal DependencyClassifier link, so the same
         // instance shows up twice in the auto-discovered list. Identity preserves the
         // @Order-driven sequence Spring built.
-        Map<DependencyClassifier, Boolean> seen = new IdentityHashMap<>();
+        IdentityHashMap<DependencyClassifier, Boolean> seen = new IdentityHashMap<>();
         this.chain = chain.stream()
                 .filter(c -> seen.putIfAbsent(c, Boolean.TRUE) == null)
                 .toList();

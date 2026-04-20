@@ -15,10 +15,10 @@ pulse:
   enforcement:
     mode: ENFORCING
 
-  # 10% sampling, but the error-biased sampler still upgrades any erroring span
-  # to sampled — so you keep full coverage on what matters at 1/10th the cost.
+  # 10% sampling (set on Boot's standard property below) and Pulse's error-biased
+  # wrapper upgrades any erroring span to sampled — so you keep full coverage on
+  # what matters at 1/10th the cost.
   sampling:
-    probability: 0.10
     prefer-sampling-on-error: true
 
   # Observe missing trace context, but never reject — propagation gaps must
@@ -63,3 +63,10 @@ pulse:
   health:
     otel-exporter-enabled: true
     otel-exporter-stale-after: 5m
+
+# Head sampling rate is owned by Spring Boot's standard tracing property — Pulse
+# defers to it so there is exactly one knob to remember.
+management:
+  tracing:
+    sampling:
+      probability: 0.10

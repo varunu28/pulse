@@ -6,7 +6,6 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -30,7 +29,7 @@ public final class CompositeErrorFingerprintStrategy implements ErrorFingerprint
 
     public CompositeErrorFingerprintStrategy(List<ErrorFingerprintStrategy> chain) {
         Objects.requireNonNull(chain, "chain");
-        Map<ErrorFingerprintStrategy, Boolean> seen = new IdentityHashMap<>();
+        IdentityHashMap<ErrorFingerprintStrategy, Boolean> seen = new IdentityHashMap<>();
         this.chain = chain.stream()
                 .filter(s -> seen.putIfAbsent(s, Boolean.TRUE) == null)
                 .toList();

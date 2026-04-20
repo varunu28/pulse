@@ -49,8 +49,13 @@ import java.util.Optional;
  */
 public final class TenantContextFilter extends OncePerRequestFilter implements Ordered {
 
-    /** After PulseRequestContextFilter (HIGHEST_PRECEDENCE+100) but before TraceGuardFilter. */
-    public static final int ORDER = PulseRequestContextFilter.ORDER + 10;
+    /**
+     * Sits between RequestPriority (+20) and RetryDepth (+40), well before TraceGuard (+50).
+     * Running after Priority means tenant-extractor implementations that route on priority
+     * (e.g. shadow tenant for low-pri traffic) see a populated {@code priority} MDC key;
+     * running before RetryDepth means the retry-amplification WARN carries the tenant id.
+     */
+    public static final int ORDER = PulseRequestContextFilter.ORDER + 30;
 
     private static final String SYSTEM_PROPERTY = "pulse.tenant.id";
 

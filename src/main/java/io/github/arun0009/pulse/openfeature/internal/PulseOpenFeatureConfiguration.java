@@ -4,8 +4,6 @@ import dev.openfeature.sdk.OpenFeatureAPI;
 import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.openfeature.PulseOpenFeatureMdcHook;
 import io.micrometer.tracing.Tracer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -15,7 +13,16 @@ import org.springframework.context.annotation.Bean;
 
 /**
  * Auto-wires Pulse's OpenFeature integration when the {@code dev.openfeature:sdk} is on the
- * classpath. Registers two hooks on the global {@link OpenFeatureAPI}:
+ * classpath.
+ *
+ * <p>The bean-factory methods below are intentionally side-effect-free — they only <em>build</em>
+ * the hook beans. The actual mutation of the JVM-global {@link OpenFeatureAPI#getInstance()}
+ * singleton happens inside {@link PulseOpenFeatureHookRegistrar}, in a single well-defined
+ * {@link org.springframework.beans.factory.SmartInitializingSingleton} step and guarded by a
+ * JVM-wide "already-registered" set so repeated Spring context refreshes (test harnesses,
+ * actuator reloads) cannot leak duplicate hook registrations.
+ *
+ * <p>Two hooks end up registered:
  *
  * <ol>
  *   <li>{@link PulseOpenFeatureMdcHook} — always registered, threads flag values onto MDC and
@@ -33,55 +40,15 @@ import org.springframework.context.annotation.Bean;
 @ConditionalOnProperty(prefix = "pulse.open-feature", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class PulseOpenFeatureConfiguration {
 
-    private static final Logger log = LoggerFactory.getLogger(PulseOpenFeatureConfiguration.class);
-    private static final String OTEL_HOOK_CLASS = "dev.openfeature.contrib.hooks.otel.OpenTelemetryHook";
-
     @Bean
     @ConditionalOnMissingBean
     public PulseOpenFeatureMdcHook pulseOpenFeatureMdcHook(ObjectProvider<Tracer> tracer) {
-        PulseOpenFeatureMdcHook hook = new PulseOpenFeatureMdcHook(tracer.getIfAvailable(() -> Tracer.NOOP));
-        try {
-            OpenFeatureAPI.getInstance().addHooks(hook);
-        } catch (RuntimeException e) {
-            log.debug("Pulse OpenFeature MDC hook registration failed", e);
-        }
-        return hook;
+        return new PulseOpenFeatureMdcHook(tracer.getIfAvailable(() -> Tracer.NOOP));
     }
 
     @Bean
-    @ConditionalOnMissingBean(name = "pulseOpenFeatureOtelHookRegistration")
-    public PulseOpenFeatureOtelHookRegistration pulseOpenFeatureOtelHookRegistration() {
-        PulseOpenFeatureOtelHookRegistration registration = new PulseOpenFeatureOtelHookRegistration();
-        registration.tryRegister();
-        return registration;
-    }
-
-    /**
-     * Marker bean whose construction is the side effect of attempting to register the upstream
-     * OpenTelemetry hook. The hook lives in an optional artifact; reflection avoids a hard
-     * compile-time dependency.
-     */
-    public static final class PulseOpenFeatureOtelHookRegistration {
-        boolean registered = false;
-
-        public boolean registered() {
-            return registered;
-        }
-
-        void tryRegister() {
-            try {
-                Class<?> hookClass = Class.forName(OTEL_HOOK_CLASS);
-                Object hook = hookClass.getDeclaredConstructor().newInstance();
-                if (hook instanceof dev.openfeature.sdk.Hook<?> otelHook) {
-                    OpenFeatureAPI.getInstance().addHooks(otelHook);
-                    registered = true;
-                    log.info("Pulse: registered OpenFeature OpenTelemetry hook for flag-evaluation tracing");
-                }
-            } catch (ClassNotFoundException ignored) {
-                // OTel hook artifact is opt-in; absence is the common case and not an error.
-            } catch (ReflectiveOperationException | RuntimeException e) {
-                log.debug("Pulse: failed to register OpenFeature OpenTelemetry hook", e);
-            }
-        }
+    @ConditionalOnMissingBean
+    public PulseOpenFeatureHookRegistrar pulseOpenFeatureHookRegistrar(PulseOpenFeatureMdcHook mdcHook) {
+        return new PulseOpenFeatureHookRegistrar(mdcHook);
     }
 }

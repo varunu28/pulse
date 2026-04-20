@@ -167,7 +167,10 @@ public class PulseDependenciesConfiguration {
     static class OkHttpBeans {
         @Bean
         @ConditionalOnMissingBean(name = "pulseDependencyOkHttpInstrumenter")
-        public BeanPostProcessor pulseDependencyOkHttpInstrumenter(
+        // static: Spring warns otherwise because a BeanPostProcessor factory on a non-static
+        // method forces OkHttpBeans to be instantiated before all other BPPs can see it —
+        // which silently disables AOP/auto-proxying on this @Configuration class.
+        public static BeanPostProcessor pulseDependencyOkHttpInstrumenter(
                 ObjectProvider<DependencyOutboundRecorder> recorder) {
             // BPP keeps recorder resolution lazy so it can be created alongside MeterRegistry.
             return new BeanPostProcessor() {

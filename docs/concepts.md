@@ -70,8 +70,10 @@ Every feature ships **on** with conservative production defaults:
   margin before outbound calls.
 - PII masking: emails, SSNs, credit cards, Bearer tokens, and JSON
   `password / secret / token / apikey` fields, redacted by default.
-- Sampling: 100% in dev, configurable for prod via
-  `pulse.sampling.probability`.
+- Sampling: 100% in dev, configurable for prod via Spring Boot's standard
+  `management.tracing.sampling.probability` (Pulse defers to it). Pulse adds
+  `pulse.sampling.prefer-sampling-on-error` on top to guarantee error spans
+  are recorded regardless of the head rate.
 - Trace-context guard, structured logs, exception fingerprints, async
   context propagation: all on.
 
@@ -103,8 +105,20 @@ logging." Pulse exposes:
 | `/actuator/pulse` | JSON snapshot of every feature and its effective configuration |
 | `/actuator/pulseui` | Single-page HTML rendering of the same |
 | `/actuator/pulse/runtime` | Top cardinality offenders, SLO compliance, exporter freshness |
-| `/actuator/pulse/effective-config` | Full resolved `PulseProperties` tree |
+| `/actuator/pulse/effective-config` | Full resolved `pulse.*` configuration tree |
+| `/actuator/pulse/config-hash` | Fleet-drift hash + contributing keys |
+| `/actuator/pulse/enforcement` | Current [enforcement mode](features/enforcement-mode.md); `POST` flips it at runtime |
 | `/actuator/pulse/slo` | Generated `PrometheusRule` YAML, ready for `kubectl apply` |
 
 The bar is: if Pulse changed something about your request, you can ask the
 actuator what and why.
+
+## Stability promise
+
+Pulse 2.x draws a hard line between the **public surface** you're meant to
+depend on (config keys, metric names, SPI interfaces, types in non-`internal`
+packages, actuator endpoint shapes) and the **wiring** that makes it work
+(everything under `.internal` packages, auto-configuration class names,
+most `@Bean` names). See [API stability](api-stability.md) for the full
+contract, the deprecation policy, and the Java / Spring Boot version
+policy.

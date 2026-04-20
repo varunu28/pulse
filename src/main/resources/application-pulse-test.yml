@@ -17,9 +17,9 @@ pulse:
   enforcement:
     mode: ENFORCING
 
-  # No sampling — keep tests fast and deterministic.
+  # Tests don't want the in-process error-bias wrapper either — keeps the
+  # number of spans deterministic regardless of error paths.
   sampling:
-    probability: 0.0
     prefer-sampling-on-error: false
 
   # Tests routinely call endpoints without traceparent. Don't fail them.
@@ -58,3 +58,9 @@ pulse:
     enabled: false
   retry:
     enabled: false
+
+# No sampling — keep tests fast and deterministic. Standard Boot property.
+management:
+  tracing:
+    sampling:
+      probability: 0.0

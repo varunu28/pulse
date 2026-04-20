@@ -29,7 +29,12 @@ import java.io.IOException;
  */
 public final class RequestPriorityFilter extends OncePerRequestFilter implements Ordered {
 
-    public static final int ORDER = PulseRequestContextFilter.ORDER + 5;
+    /**
+     * Slotted after TimeoutBudget (+10) but before Tenant (+30) and Retry (+40) so the
+     * priority MDC key is available to whatever SPI extracts the tenant — a frequent
+     * request for tenants-of-class-HIGH routing rules.
+     */
+    public static final int ORDER = PulseRequestContextFilter.ORDER + 20;
 
     private final String headerName;
     private final RequestPriority defaultPriority;

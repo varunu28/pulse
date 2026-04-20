@@ -49,8 +49,10 @@ public final class SloRuleGenerator {
     }
 
     /**
-     * @return a complete PrometheusRule YAML document. If no objectives are declared, returns a
-     *     header-only document (still valid YAML, makes the endpoint always parse cleanly).
+     * Returns a complete PrometheusRule YAML document. If no objectives are declared, returns a
+     * header-only document (still valid YAML, makes the endpoint always parse cleanly).
+     *
+     * @return the rendered YAML document.
      */
     public String render() {
         StringBuilder yaml = new StringBuilder();

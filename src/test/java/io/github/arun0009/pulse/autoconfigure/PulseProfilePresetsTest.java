@@ -78,7 +78,10 @@ class PulseProfilePresetsTest {
     void dev_preset_runs_enforcing_with_full_sampling_and_loose_cardinality_budget() {
         withPulseProfile("pulse-dev").run(ctx -> {
             assertThat(ctx.getBean(EnforcementProperties.class).mode()).isEqualTo(PulseEnforcementMode.Mode.ENFORCING);
-            assertThat(ctx.getBean(SamplingProperties.class).probability()).isEqualTo(1.0);
+            assertThat(ctx.getEnvironment().getProperty("management.tracing.sampling.probability", Double.class))
+                    .isEqualTo(1.0);
+            assertThat(ctx.getBean(SamplingProperties.class).preferSamplingOnError())
+                    .isTrue();
             assertThat(ctx.getBean(TraceGuardProperties.class).failOnMissing()).isFalse();
             assertThat(ctx.getBean(CardinalityProperties.class).maxTagValuesPerMeter())
                     .isEqualTo(5000);
@@ -90,7 +93,10 @@ class PulseProfilePresetsTest {
     void prod_preset_runs_enforcing_with_low_sampling_and_strict_guards() {
         withPulseProfile("pulse-prod").run(ctx -> {
             assertThat(ctx.getBean(EnforcementProperties.class).mode()).isEqualTo(PulseEnforcementMode.Mode.ENFORCING);
-            assertThat(ctx.getBean(SamplingProperties.class).probability()).isEqualTo(0.10);
+            assertThat(ctx.getEnvironment().getProperty("management.tracing.sampling.probability", Double.class))
+                    .isEqualTo(0.10);
+            assertThat(ctx.getBean(SamplingProperties.class).preferSamplingOnError())
+                    .isTrue();
             assertThat(ctx.getBean(CardinalityProperties.class).maxTagValuesPerMeter())
                     .isEqualTo(1000);
             assertThat(ctx.getBean(BannerProperties.class).enabled()).isFalse();
@@ -106,7 +112,10 @@ class PulseProfilePresetsTest {
             assertThat(ctx.getBean(TraceGuardProperties.class).enabled()).isFalse();
             assertThat(ctx.getBean(CardinalityProperties.class).enabled()).isFalse();
             assertThat(ctx.getBean(TimeoutBudgetProperties.class).enabled()).isFalse();
-            assertThat(ctx.getBean(SamplingProperties.class).probability()).isEqualTo(0.0);
+            assertThat(ctx.getEnvironment().getProperty("management.tracing.sampling.probability", Double.class))
+                    .isEqualTo(0.0);
+            assertThat(ctx.getBean(SamplingProperties.class).preferSamplingOnError())
+                    .isFalse();
             assertThat(ctx.getBean(BannerProperties.class).enabled()).isFalse();
             assertThat(ctx.getBean(DbProperties.class).enabled()).isFalse();
         });
@@ -118,7 +127,10 @@ class PulseProfilePresetsTest {
             assertThat(ctx.getBean(EnforcementProperties.class).mode())
                     .as("canary must be DRY_RUN — every guardrail observes, none enforces")
                     .isEqualTo(PulseEnforcementMode.Mode.DRY_RUN);
-            assertThat(ctx.getBean(SamplingProperties.class).probability()).isEqualTo(1.0);
+            assertThat(ctx.getEnvironment().getProperty("management.tracing.sampling.probability", Double.class))
+                    .isEqualTo(1.0);
+            assertThat(ctx.getBean(SamplingProperties.class).preferSamplingOnError())
+                    .isTrue();
             assertThat(ctx.getBean(TraceGuardProperties.class).failOnMissing())
                     .as("fail-on-missing stays enabled — DRY_RUN downgrades it at runtime")
                     .isTrue();
@@ -240,8 +252,10 @@ class PulseProfilePresetsTest {
                             .postProcessEnvironment(ctx.getEnvironment(), new SpringApplication());
                 })
                 .withInitializer(new ConfigDataApplicationContextInitializer())
-                .run(ctx -> assertThat(ctx.getBean(SamplingProperties.class).probability())
-                        .as("auto-applied pulse-prod must drag in its 0.10 sampling probability")
+                .run(ctx -> assertThat(ctx.getEnvironment()
+                                .getProperty("management.tracing.sampling.probability", Double.class))
+                        .as(
+                                "auto-applied pulse-prod must drag in its 0.10 sampling probability via Boot's standard property")
                         .isEqualTo(0.10));
     }
 }

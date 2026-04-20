@@ -55,7 +55,15 @@ import java.util.List;
  */
 public class TraceGuardFilter extends OncePerRequestFilter implements Ordered {
 
-    public static final int ORDER = PulseRequestContextFilter.ORDER + 1;
+    /**
+     * Intentionally ordered <em>last</em> within the Pulse inbound cluster (after
+     * TimeoutBudget / Priority / Tenant / RetryDepth). Every MDC field those earlier filters set
+     * — tenant id, priority, retry depth, deadline — is therefore attached to the missing-trace
+     * WARN that this filter emits, which is essential to triage: a trace-context leak that
+     * correlates with {@code tenantId=acme} + {@code priority=HIGH} is a wholly different bug
+     * from one that happens only on retry bursts.
+     */
+    public static final int ORDER = PulseRequestContextFilter.ORDER + 50;
 
     private static final Logger log = LoggerFactory.getLogger(TraceGuardFilter.class);
 

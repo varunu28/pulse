@@ -1,11 +1,13 @@
 # Configuration reference
 
-Every Pulse property lives under the `pulse.*` namespace. The full surface
-is bound to the
-[`PulseProperties`](https://github.com/arun0009/pulse/blob/main/src/main/java/io/github/arun0009/pulse/autoconfigure/PulseProperties.java)
-record; every key is described in
-`META-INF/spring-configuration-metadata.json`, so IntelliJ and VS Code
-autocomplete with type and default information out of the box.
+Every Pulse property lives under the `pulse.*` namespace. As of Pulse 2.0
+the surface is split into one `@ConfigurationProperties` record per
+feature (`CardinalityProperties`, `TimeoutBudgetProperties`,
+`TenantProperties`, `SloProperties`, …) living in each feature's package
+under [`io.github.arun0009.pulse`](https://github.com/arun0009/pulse/tree/main/src/main/java/io/github/arun0009/pulse).
+Every key is described in `META-INF/spring-configuration-metadata.json`,
+so IntelliJ and VS Code autocomplete with type and default information out
+of the box.
 
 ## See your effective configuration at runtime
 
@@ -15,8 +17,9 @@ The single source of truth for "what is actually running" is the actuator:
 $ curl -s localhost:8080/actuator/pulse/effective-config | jq
 ```
 
-This dumps the resolved `PulseProperties` tree, so you can see exactly which
-defaults won and which keys you overrode.
+This dumps the resolved `pulse.*` configuration tree (every per-feature
+`*Properties` record merged), so you can see exactly which defaults won
+and which keys you overrode.
 
 For a browser-friendly view, hit `/actuator/pulseui`.
 
@@ -30,9 +33,13 @@ spring:
   application:
     name: order-service
 
+management:
+  tracing:
+    sampling:
+      probability: 0.10              # 10% in prod, 1.0 in dev — Boot's standard knob
 pulse:
   sampling:
-    probability: 0.10                # 10% in prod, 1.0 in dev
+    prefer-sampling-on-error: true   # rescue error spans the head sampler would drop
   timeout-budget:
     default-budget: 2s
     maximum-budget: 30s              # edge clamp
@@ -86,5 +93,11 @@ defaults, and gotchas. The high-traffic ones:
 | GraalVM native | Reflection / proxy / resource hints registered via `RuntimeHints` (best-effort; not gated in CI yet) |
 
 Pulse uses Boot 4's repackaged actuator API, the new Micrometer + OTel
-starters, and Java 21 records / pattern matching. A Boot 3.x backport may
-follow in the 1.x line but is not on the 1.0 roadmap.
+starters, and Java 21 records / pattern matching. A Boot 3.x backport is
+not planned for the 2.x line.
+
+## Stability
+
+See [API stability](api-stability.md) for the 2.x compatibility promise —
+what's stable across minor versions, what's internal, and how deprecations
+land.

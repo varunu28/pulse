@@ -1,6 +1,6 @@
 # Live diagnostic actuator
 
-> **TL;DR.** `/actuator/pulse` (JSON) and `/actuator/pulse-ui` (zero-dep
+> **TL;DR.** `/actuator/pulse` (JSON) and `/actuator/pulseui` (zero-dep
 > HTML) show every Pulse setting, the last OTel exporter status, and a
 > dry-run / killswitch toggle. No redeploys to inspect a running pod.
 
@@ -21,8 +21,9 @@ A single browser tab, no auth gymnastics, no extra dashboards to provision:
 | `/actuator/pulse` | JSON snapshot of every Pulse feature and its effective configuration |
 | `/actuator/pulseui` | Same, rendered as a single HTML page (browser-friendly) |
 | `/actuator/pulse/runtime` | Cardinality top-offenders, SLO compliance, OTel exporter freshness |
-| `/actuator/pulse/effective-config` | Full resolved `PulseProperties` tree |
+| `/actuator/pulse/effective-config` | Full resolved `pulse.*` configuration tree (every per-feature `*Properties` record merged) |
 | `/actuator/pulse/config-hash` | [Fleet-drift](fleet-config-drift.md) hash + contributing keys |
+| `/actuator/pulse/enforcement` | Current [enforcement mode](enforcement-mode.md) (`ENFORCING` or `DRY_RUN`); `POST` flips it at runtime |
 | `/actuator/pulse/slo` | Generated `PrometheusRule` YAML (see [SLO-as-code](slo-as-code.md)) |
 
 Plus the pre-built health indicators:

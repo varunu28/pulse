@@ -16,6 +16,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.restclient.RestTemplateCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
@@ -37,8 +38,16 @@ public class RestTemplatePropagationConfiguration {
     @ConditionalOnClass({RestTemplate.class, RestTemplateCustomizer.class})
     static class Beans {
 
+        /**
+         * MDC-header propagation customizer. Ordered {@code 0} so it installs its interceptor
+         * <em>before</em> {@link #pulseTimeoutBudgetRestTemplateCustomizer} — RestTemplate runs
+         * interceptors in insertion order, and the deadline header should only be stamped onto a
+         * request that already carries the caller identity headers, so a Pulse-equipped downstream
+         * service can correlate the timeout with the request id that triggered it.
+         */
         @Bean
         @ConditionalOnMissingBean(name = "pulseRestTemplateCustomizer")
+        @Order(0)
         public RestTemplateCustomizer pulseRestTemplateCustomizer(
                 ContextProperties context, RetryProperties retry, PriorityProperties priority) {
             Map<String, String> headerMap = HeaderPropagation.headerToMdcKey(context, retry, priority);
@@ -56,6 +65,12 @@ public class RestTemplatePropagationConfiguration {
             });
         }
 
+        /**
+         * Timeout-budget propagation customizer. Ordered after {@link
+         * #pulseRestTemplateCustomizer} so it appends its interceptor to the tail of the chain;
+         * that guarantees the deadline header is only stamped once the MDC headers — which
+         * downstream Pulse instances correlate the deadline with — have already been written.
+         */
         @Bean
         @ConditionalOnMissingBean(name = "pulseTimeoutBudgetRestTemplateCustomizer")
         @ConditionalOnProperty(
@@ -63,6 +78,7 @@ public class RestTemplatePropagationConfiguration {
                 name = "enabled",
                 havingValue = "true",
                 matchIfMissing = true)
+        @Order(100)
         public RestTemplateCustomizer pulseTimeoutBudgetRestTemplateCustomizer(
                 TimeoutBudgetProperties timeoutBudget, MeterRegistry registry) {
             TimeoutBudgetOutboundInterceptor interceptor =

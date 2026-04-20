@@ -132,7 +132,6 @@ public class ResourceAttributeResolver {
     static final String K8S_NAMESPACE_FILE = "/var/run/secrets/kubernetes.io/serviceaccount/namespace";
 
     private final Function<String, @Nullable String> envLookup;
-    private final Function<String, @Nullable String> systemPropertyLookup;
     private final Function<Path, @Nullable String> fileReader;
     private final HostNameProvider hostNameProvider;
 
@@ -147,11 +146,7 @@ public class ResourceAttributeResolver {
      * test-seam constructor.
      */
     public ResourceAttributeResolver(HostNameProvider hostNameProvider) {
-        this(
-                ResourceAttributeResolver::safeGetEnv,
-                ResourceAttributeResolver::safeGetSystemProperty,
-                ResourceAttributeResolver::safeReadFile,
-                hostNameProvider);
+        this(ResourceAttributeResolver::safeGetEnv, ResourceAttributeResolver::safeReadFile, hostNameProvider);
     }
 
     /**
@@ -161,11 +156,9 @@ public class ResourceAttributeResolver {
      */
     protected ResourceAttributeResolver(
             Function<String, @Nullable String> envLookup,
-            Function<String, @Nullable String> systemPropertyLookup,
             Function<Path, @Nullable String> fileReader,
             HostNameProvider hostNameProvider) {
         this.envLookup = envLookup;
-        this.systemPropertyLookup = systemPropertyLookup;
         this.fileReader = fileReader;
         this.hostNameProvider = hostNameProvider;
     }
@@ -334,14 +327,6 @@ public class ResourceAttributeResolver {
     @Nullable private static String safeGetEnv(String name) {
         try {
             return System.getenv(name);
-        } catch (SecurityException ignored) {
-            return null;
-        }
-    }
-
-    @Nullable private static String safeGetSystemProperty(String name) {
-        try {
-            return System.getProperty(name);
         } catch (SecurityException ignored) {
             return null;
         }

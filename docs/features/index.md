@@ -42,7 +42,7 @@ through for the full page. Every feature is on by default and opt-out via
 | [Graceful drain + OTel flush](graceful-shutdown.md) | Readiness drain visible; JVM exit blocks until the last span batch is exported | You don't care about losing the last second of traces on rolling deploys |
 | [Fleet config-drift detection](fleet-config-drift.md) | Deterministic hash of resolved `pulse.*` tree; alert fires when one deployment has > 1 hash | You only run a single replica |
 | [Live diagnostic actuator](actuator.md) | `/actuator/pulse` (JSON) + `/actuator/pulseui` (HTML) — what's on, off, why | You forbid actuator endpoints in production |
-| [Sampling](sampling.md) | `pulse.sampling.probability` + `prefer-sampling-on-error` upgrades errors past the head sampler | You enforce sampling in the OTel Collector |
+| [Sampling](sampling.md) | `management.tracing.sampling.probability` (Boot's standard knob) + `pulse.sampling.prefer-sampling-on-error` upgrades errors past the head sampler | You enforce sampling in the OTel Collector |
 | [Dry-run / enforcement mode](enforcement-mode.md) | `POST /actuator/pulse/enforcement` flips Pulse process-wide between ENFORCING and DRY_RUN | You're confident every Pulse feature is correctly tuned |
 | [Profile presets](profile-presets.md) | One-line `spring.config.import` for tuned `dev` / `prod` / `test` / `canary` configurations | You manage all configuration centrally |
 | [Configuration validation](configuration-validation.md) | JSR-380 constraints on every `pulse.*` property; typos fail at startup, not 3 AM | You template all config and pre-validate it |
@@ -164,9 +164,10 @@ Things every Spring shop eventually builds, badly.
   deployment has more than one hash.
 - [Live diagnostic actuator](actuator.md) — `/actuator/pulse` (JSON) and
   `/actuator/pulseui` (HTML) for "what's running and what won."
-- [Sampling](sampling.md) — `pulse.sampling.probability` plus best-effort
-  `prefer-sampling-on-error` for spans the head sampler would have
-  dropped.
+- [Sampling](sampling.md) — Spring Boot's standard
+  `management.tracing.sampling.probability` for the head rate, plus Pulse's
+  best-effort `pulse.sampling.prefer-sampling-on-error` for spans the head
+  sampler would have dropped.
 
 ## Operational levers (1.1+)
 

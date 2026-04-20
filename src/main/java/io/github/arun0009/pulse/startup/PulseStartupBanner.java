@@ -18,11 +18,18 @@ public class PulseStartupBanner implements SmartInitializingSingleton {
     private final PulseDiagnostics.AllProperties p;
     private final Environment env;
     private final String serviceName;
+    private final double samplingProbability;
 
     public PulseStartupBanner(PulseDiagnostics.AllProperties p, Environment env, String serviceName) {
+        this(p, env, serviceName, env.getProperty("management.tracing.sampling.probability", Double.class, 1.0));
+    }
+
+    public PulseStartupBanner(
+            PulseDiagnostics.AllProperties p, Environment env, String serviceName, double samplingProbability) {
         this.p = p;
         this.env = env;
         this.serviceName = serviceName;
+        this.samplingProbability = samplingProbability;
     }
 
     @Override
@@ -53,7 +60,7 @@ public class PulseStartupBanner implements SmartInitializingSingleton {
                         profiles,
                         onOff(p.traceGuard().enabled()),
                         p.traceGuard().failOnMissing(),
-                        p.sampling().probability(),
+                        samplingProbability,
                         onOff(p.cardinality().enabled()),
                         p.cardinality().maxTagValuesPerMeter(),
                         p.cardinality().overflowValue(),

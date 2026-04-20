@@ -16,6 +16,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.restclient.RestClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.web.client.RestClient;
 
 import java.util.Map;
@@ -36,8 +37,14 @@ public class RestClientPropagationConfiguration {
     @ConditionalOnClass({RestClient.class, RestClientCustomizer.class})
     static class Beans {
 
+        /**
+         * MDC-header propagation customizer. Ordered {@code 0} so it installs its interceptor
+         * <em>before</em> {@link #pulseTimeoutBudgetRestClientCustomizer}; see the
+         * corresponding RestTemplate customizer for the full rationale.
+         */
         @Bean
         @ConditionalOnMissingBean(name = "pulseRestClientCustomizer")
+        @Order(0)
         public RestClientCustomizer pulseRestClientCustomizer(
                 ContextProperties context, RetryProperties retry, PriorityProperties priority) {
             Map<String, String> headerMap = HeaderPropagation.headerToMdcKey(context, retry, priority);
@@ -55,6 +62,11 @@ public class RestClientPropagationConfiguration {
             });
         }
 
+        /**
+         * Timeout-budget propagation customizer. Ordered after {@link
+         * #pulseRestClientCustomizer} so the MDC headers are in place before the deadline
+         * header lands.
+         */
         @Bean
         @ConditionalOnMissingBean(name = "pulseTimeoutBudgetRestClientCustomizer")
         @ConditionalOnProperty(
@@ -62,6 +74,7 @@ public class RestClientPropagationConfiguration {
                 name = "enabled",
                 havingValue = "true",
                 matchIfMissing = true)
+        @Order(100)
         public RestClientCustomizer pulseTimeoutBudgetRestClientCustomizer(
                 TimeoutBudgetProperties timeoutBudget, MeterRegistry registry) {
             TimeoutBudgetOutboundInterceptor interceptor =

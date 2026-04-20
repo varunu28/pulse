@@ -10,8 +10,12 @@ import io.github.arun0009.pulse.db.DbProperties;
 import io.github.arun0009.pulse.dependencies.DependenciesProperties;
 import io.github.arun0009.pulse.enforcement.EnforcementProperties;
 import io.github.arun0009.pulse.enforcement.PulseEnforcementMode;
+import io.github.arun0009.pulse.events.PulseEventContext;
 import io.github.arun0009.pulse.events.SpanEvents;
 import io.github.arun0009.pulse.events.WideEventsProperties;
+import io.github.arun0009.pulse.events.internal.PulseEventCounterObservationHandler;
+import io.github.arun0009.pulse.events.internal.PulseEventLoggingObservationHandler;
+import io.github.arun0009.pulse.events.internal.PulseEventSpanObservationHandler;
 import io.github.arun0009.pulse.exception.ExceptionHandlerProperties;
 import io.github.arun0009.pulse.fleet.ConfigHashGauge;
 import io.github.arun0009.pulse.fleet.ConfigHasher;
@@ -199,18 +203,42 @@ public class PulseAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(name = "pulseEventCounterObservationHandler")
+    @ConditionalOnProperty(prefix = "pulse.wide-events", name = "enabled", havingValue = "true", matchIfMissing = true)
+    public PulseEventCounterObservationHandler pulseEventCounterObservationHandler(
+            MeterRegistry registry, WideEventsProperties properties) {
+        return new PulseEventCounterObservationHandler(registry, properties);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "pulseEventSpanObservationHandler")
+    @ConditionalOnProperty(prefix = "pulse.wide-events", name = "enabled", havingValue = "true", matchIfMissing = true)
+    public PulseEventSpanObservationHandler pulseEventSpanObservationHandler(ObjectProvider<Tracer> tracer) {
+        return new PulseEventSpanObservationHandler(tracer.getIfAvailable(() -> Tracer.NOOP));
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "pulseEventLoggingObservationHandler")
+    @ConditionalOnProperty(prefix = "pulse.wide-events", name = "enabled", havingValue = "true", matchIfMissing = true)
+    public PulseEventLoggingObservationHandler pulseEventLoggingObservationHandler(WideEventsProperties properties) {
+        return new PulseEventLoggingObservationHandler(properties);
+    }
+
+    @Bean
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "pulse.wide-events", name = "enabled", havingValue = "true", matchIfMissing = true)
     public SpanEvents pulseSpanEvents(
-            MeterRegistry registry,
             WideEventsProperties properties,
             ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistry,
-            ObjectProvider<Tracer> tracer) {
+            PulseEventCounterObservationHandler counterHandler,
+            PulseEventSpanObservationHandler spanHandler,
+            PulseEventLoggingObservationHandler loggingHandler) {
+        java.util.List<io.micrometer.observation.ObservationHandler<PulseEventContext>> builtIns =
+                java.util.List.of(counterHandler, spanHandler, loggingHandler);
         return new SpanEvents(
-                registry,
                 properties,
                 observationRegistry.getIfAvailable(() -> io.micrometer.observation.ObservationRegistry.NOOP),
-                tracer.getIfAvailable(() -> Tracer.NOOP));
+                builtIns);
     }
 
     @Bean

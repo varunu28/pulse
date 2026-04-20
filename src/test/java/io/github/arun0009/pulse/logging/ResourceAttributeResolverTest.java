@@ -298,14 +298,18 @@ class ResourceAttributeResolverTest {
      * Subclass that exposes the {@code protected} constructor for tests. The production class
      * is now extensible (Pulse 2.0) — by going through a subclass we also exercise the
      * extension contract instead of bypassing it.
+     *
+     * <p>The {@code systemPropertyLookup} parameter is accepted but ignored: it was a
+     * never-used test seam in the 1.x resolver, removed in 2.0. Kept on this helper so
+     * existing test callsites stay readable without a mass rewrite.
      */
     private static final class TestResourceAttributeResolver extends ResourceAttributeResolver {
         TestResourceAttributeResolver(
                 Function<String, @Nullable String> envLookup,
-                Function<String, @Nullable String> systemPropertyLookup,
+                @SuppressWarnings("unused") Function<String, @Nullable String> systemPropertyLookup,
                 Function<Path, @Nullable String> fileReader,
                 HostNameProvider hostNameProvider) {
-            super(envLookup, systemPropertyLookup, fileReader, hostNameProvider);
+            super(envLookup, fileReader, hostNameProvider);
         }
     }
 

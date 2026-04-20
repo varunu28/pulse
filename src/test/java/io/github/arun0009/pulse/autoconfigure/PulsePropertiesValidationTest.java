@@ -17,10 +17,13 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Verifies that each per-feature {@code @ConfigurationProperties} record fails fast at startup when
  * an out-of-range value is supplied. Without this gate, a typo like
- * {@code pulse.sampling.probability: 1.5} would silently mis-configure the SDK; with
- * {@link org.springframework.validation.annotation.Validated} on each record root and JSR-380
+ * {@code pulse.cardinality.max-tag-values-per-meter: -5} would silently mis-configure the firewall;
+ * with {@link org.springframework.validation.annotation.Validated} on each record root and JSR-380
  * constraints on individual fields, Spring Boot rejects the binding before the application context
  * starts.
+ *
+ * <p>The head sampling rate ({@code management.tracing.sampling.probability}) is owned by Spring
+ * Boot's tracing auto-configuration, not by Pulse, so its validation is covered by Boot itself.
  */
 class PulsePropertiesValidationTest {
 
@@ -38,12 +41,6 @@ class PulsePropertiesValidationTest {
                 .hasSingleBean(ContextProperties.class)
                 .hasSingleBean(AsyncProperties.class)
                 .hasSingleBean(ContainerMemoryProperties.class));
-    }
-
-    @Test
-    void rejects_sampling_probability_above_one() {
-        runner.withPropertyValues("pulse.sampling.probability=1.5")
-                .run(ctx -> Assertions.assertThat(ctx).hasFailed().getFailure().hasStackTraceContaining("probability"));
     }
 
     @Test

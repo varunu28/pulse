@@ -294,19 +294,35 @@ list):
 
 | Bean name                                  | What you replace                                        |
 | ------------------------------------------ | ------------------------------------------------------- |
-| `pulseCommonTags`                          | Common tags applied to every meter.                     |
-| `pulseRequestFanoutFilterRegistration`     | The fan-out filter registration (filter + URL pattern). |
-| `pulseTenantContextFilter`                 | The inbound tenant-context filter registration.         |
-| `pulseRetryDepthFilter`                    | The inbound retry-depth filter registration.            |
-| `pulseHostNameProvider`                    | Default host name provider (also see `HostNameProvider` SPI above). |
-| `pulseResourceAttributeResolver`           | Default resource-attribute resolver bean.               |
-| `pulseDependencyResolver`                  | Default host-table resolver (also a `DependencyClassifier`). |
-| `pulseOkHttpInterceptor`                   | Stand-alone OkHttp interceptor (additive `BeanPostProcessor` is separate). |
-| `pulseKafkaRecordInterceptor`              | Pulse's Kafka inbound record interceptor.               |
-| `pulseAllProperties`                       | The aggregated properties snapshot exposed by the actuator. |
+| `pulseCommonTags`                            | Common tags applied to every meter.                     |
+| `pulseRequestFanoutFilterRegistration`       | The fan-out filter registration (filter + URL pattern). |
+| `pulseTenantContextFilter`                   | The inbound tenant-context filter registration.         |
+| `pulseRetryDepthFilter`                      | The inbound retry-depth filter registration.            |
+| `pulseHostNameProvider`                      | Default host name provider (also see `HostNameProvider` SPI above). |
+| `pulseResourceAttributeResolver`             | Default resource-attribute resolver bean.               |
+| `pulseDependencyResolver`                    | Default host-table resolver (also a `DependencyClassifier`). |
+| `pulseOkHttpInterceptor`                     | Stand-alone OkHttp interceptor (additive `BeanPostProcessor` is separate). |
+| `pulseKafkaRecordInterceptor`                | Pulse's Kafka inbound record interceptor.               |
+| `pulseAllProperties`                         | The aggregated properties snapshot exposed by the actuator. |
+| `pulseRestTemplateCustomizer`                | MDC-header propagation for `RestTemplate`.              |
+| `pulseTimeoutBudgetRestTemplateCustomizer`   | Timeout-budget propagation for `RestTemplate`.          |
+| `pulseRestClientCustomizer`                  | MDC-header propagation for `RestClient`.                |
+| `pulseTimeoutBudgetRestClientCustomizer`     | Timeout-budget propagation for `RestClient`.            |
+| `pulseWebClientCustomizer`                   | MDC-header + timeout-budget propagation for `WebClient`.|
+| `pulseOkHttpBuilderInstrumenter`             | `BeanPostProcessor` that instruments every `OkHttpClient.Builder`. |
+| `pulseDependencyRestTemplateCustomizer`      | Dependency-tagging interceptor for `RestTemplate`.      |
+| `pulseDependencyRestClientCustomizer`        | Dependency-tagging interceptor for `RestClient`.        |
+| `pulseDependencyWebClientCustomizer`         | Dependency-tagging filter for `WebClient`.              |
+| `pulseDependencyOkHttpInstrumenter`          | `BeanPostProcessor` that installs the dependency OkHttp interceptor. |
+| `pulseKafkaPropagationContextInitializer`    | Bean that seeds `KafkaPropagationContext` at startup.   |
+| `pulseProducerFactoryCustomizer`             | `BeanPostProcessor` that appends Pulse's producer interceptor. |
+| `pulseRecordInterceptorComposite`            | `@Primary RecordInterceptor` that composes user interceptors with Pulse's. |
 
-> **What is intentionally not overridable?** Additive customizers
-> (`RestTemplateCustomizer`, `WebClientCustomizer`, `RestClientCustomizer`,
-> `MeterRegistryCustomizer`), `BeanPostProcessor`s, ordered chain terminals,
-> and `@Primary` composites — adding more of these is the correct extension
-> path, not replacing them.
+> **What is intentionally not overridable by name?** Ordered chain terminals
+> (`pulseDependencyHostTableClassifier`, `pulseDefaultErrorFingerprintStrategy`)
+> and `@Primary` chain composites (`pulseDependencyClassifier`,
+> `pulseErrorFingerprintStrategy`) — adding more chain links is the correct
+> extension path, not replacing the composite or the terminal. Toggle-gated
+> `BeanPostProcessor`s like `pulsePreferErrorSamplerWrapper` are disabled via
+> their property (here `pulse.sampling.prefer-sampling-on-error=false`), not
+> by bean replacement.

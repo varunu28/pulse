@@ -1,26 +1,27 @@
 package io.github.arun0009.pulse.guardrails;
 
-import jakarta.validation.constraints.DecimalMax;
-import jakarta.validation.constraints.DecimalMin;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.validation.annotation.Validated;
 
 /**
- * Trace-sampler configuration.
+ * Pulse-specific tuning of the OpenTelemetry trace sampler.
  *
- * <p>The default is {@code ParentBased(TraceIdRatioBased(probability))}: 100% in dev, set
- * {@code probability} to {@code 0.1}–{@code 0.05} in production.
+ * <p>The <em>head sampling rate</em> itself is owned by Spring Boot's
+ * {@code management.tracing.sampling.probability} property — Pulse intentionally does not
+ * shadow it. Whatever {@link io.opentelemetry.sdk.trace.samplers.Sampler Sampler} bean Spring
+ * Boot's tracing auto-configuration produces (typically
+ * {@code ParentBased(TraceIdRatioBased(probability))}) is the base decision.
  *
- * <p>{@link #preferSamplingOnError()} composes a best-effort error-biased sampler on top:
- * when a span has its status set to {@code ERROR} or carries an exception attribute, Pulse
- * marks it sampled even if the parent's flag would have dropped it. This is an in-process
- * heuristic — true tail sampling requires the OpenTelemetry Collector — but it dramatically
- * raises the recall on errors with negligible volume cost.
+ * <p>{@link #preferSamplingOnError()} is purely additive: when enabled (default), Pulse wraps
+ * the discovered {@code Sampler} with {@link PreferErrorSampler}. Spans whose start attributes
+ * already advertise an error (HTTP 5xx, {@code exception.type}, non-OK gRPC status, …) are
+ * upgraded to {@code RECORD_AND_SAMPLE} regardless of the underlying sampler's decision.
+ *
+ * <p>This is an in-process best-effort heuristic — true tail sampling requires the
+ * OpenTelemetry Collector — but it dramatically raises the recall on errors with negligible
+ * volume cost.
  */
 @Validated
 @ConfigurationProperties(prefix = "pulse.sampling")
-public record SamplingProperties(
-        @DefaultValue("1.0") @DecimalMin("0.0") @DecimalMax("1.0") double probability,
-
-        @DefaultValue("true") boolean preferSamplingOnError) {}
+public record SamplingProperties(@DefaultValue("true") boolean preferSamplingOnError) {}

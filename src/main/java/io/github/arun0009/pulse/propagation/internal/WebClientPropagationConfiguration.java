@@ -16,6 +16,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.webclient.WebClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.web.reactive.function.client.ClientRequest;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -38,8 +39,15 @@ public class WebClientPropagationConfiguration {
     @ConditionalOnClass({WebClient.class, WebClientCustomizer.class})
     static class Beans {
 
+        /**
+         * Combined MDC+TimeoutBudget propagation customizer. Ordered {@code 0} so any
+         * user-defined {@link WebClientCustomizer} without an explicit order (Spring's default
+         * is {@link org.springframework.core.Ordered#LOWEST_PRECEDENCE}) runs after Pulse's,
+         * i.e. sees the Pulse-authored headers already on the request builder.
+         */
         @Bean
         @ConditionalOnMissingBean(name = "pulseWebClientCustomizer")
+        @Order(0)
         public WebClientCustomizer pulseWebClientCustomizer(
                 ContextProperties context,
                 RetryProperties retry,

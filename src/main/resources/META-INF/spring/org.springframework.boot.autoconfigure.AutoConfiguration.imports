@@ -10,6 +10,7 @@ io.github.arun0009.pulse.metrics.internal.CommonTagsConfiguration
 io.github.arun0009.pulse.openfeature.internal.PulseOpenFeatureConfiguration
 io.github.arun0009.pulse.priority.internal.PulsePriorityConfiguration
 io.github.arun0009.pulse.profiling.internal.PulseProfilingConfiguration
+io.github.arun0009.pulse.propagation.internal.ApacheHttpClient5PropagationConfiguration
 io.github.arun0009.pulse.propagation.internal.KafkaPropagationConfiguration
 io.github.arun0009.pulse.propagation.internal.OkHttpPropagationConfiguration
 io.github.arun0009.pulse.propagation.internal.RestClientPropagationConfiguration

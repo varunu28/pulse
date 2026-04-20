@@ -41,7 +41,10 @@ public class OkHttpPropagationConfiguration {
 
         @Bean
         @ConditionalOnMissingBean(name = "pulseOkHttpBuilderInstrumenter")
-        public BeanPostProcessor pulseOkHttpBuilderInstrumenter(
+        // static: Spring warns otherwise because a BeanPostProcessor factory on a non-static
+        // method forces Beans to be instantiated before all other BPPs can see it — which
+        // silently disables AOP/auto-proxying on this @Configuration class.
+        public static BeanPostProcessor pulseOkHttpBuilderInstrumenter(
                 ContextProperties context,
                 RetryProperties retry,
                 PriorityProperties priority,

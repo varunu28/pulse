@@ -23,10 +23,9 @@ pulse:
     # never throws on a missing trace context.
     mode: DRY_RUN
 
-  # Trace everything on the canary so you can answer any "why did this one
-  # request behave that way?" question after the fact.
+  # Pulse's additive error bias stays on so any error span is recorded even if
+  # the head rate were lowered for a larger canary fleet.
   sampling:
-    probability: 1.0
     prefer-sampling-on-error: true
 
   # Diagnostics are still useful — fail-on-missing is also gated by DRY_RUN
@@ -57,3 +56,10 @@ pulse:
 
   logging:
     pii-masking-enabled: true
+
+# Trace everything on the canary so you can answer any "why did this one
+# request behave that way?" question after the fact.
+management:
+  tracing:
+    sampling:
+      probability: 1.0

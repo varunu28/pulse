@@ -47,8 +47,10 @@ public final class OtelExporterHealthRegistrar implements BeanPostProcessor {
     }
 
     /**
-     * @return an immutable snapshot of every wrapped exporter observed so far. Safe to call
-     *         from any thread; the underlying list is copy-on-write.
+     * Returns an immutable snapshot of every wrapped exporter observed so far. Safe to call from
+     * any thread; the underlying list is copy-on-write.
+     *
+     * @return the wrapped exporters tracked by this registrar.
      */
     public List<LastSuccessSpanExporter> exporters() {
         return List.copyOf(tracked);

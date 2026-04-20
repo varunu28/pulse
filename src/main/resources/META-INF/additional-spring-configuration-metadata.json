@@ -165,7 +165,12 @@
     },
     {
       "name": "pulse.sampling.probability",
-      "description": "Head-based sampling ratio for root spans (parent decisions are always honoured). 1.0 = sample all (default), 0.1 = 10%, 0.0 = sample none. Set to 0.05–0.1 in high-traffic production services."
+      "description": "Removed in Pulse 2.0. The head sampling rate is owned by Spring Boot's standard 'management.tracing.sampling.probability' property — Pulse defers to it so there is exactly one knob.",
+      "deprecation": {
+        "reason": "Pulse no longer shadows Boot's standard tracing-sampling property; set 'management.tracing.sampling.probability' instead.",
+        "replacement": "management.tracing.sampling.probability",
+        "level": "error"
+      }
     },
     {
       "name": "pulse.cardinality.max-tag-values-per-meter",
