@@ -234,7 +234,7 @@ class KafkaPropagationConfigurationTest {
                 new PulseProperties.Banner(true),
                 new PulseProperties.Histograms(true, List.of(), List.of()),
                 new PulseProperties.Slo(true, List.of()),
-                new PulseProperties.Health(true, Duration.ofMinutes(5)),
+                new PulseProperties.OtelExporterHealth(true, Duration.ofMinutes(5)),
                 new PulseProperties.Shutdown(
                         true, Duration.ofSeconds(10), new PulseProperties.Shutdown.Drain(true, Duration.ofSeconds(30))),
                 new PulseProperties.Jobs(true, true, Duration.ofHours(1)),

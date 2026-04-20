@@ -30,9 +30,10 @@ public final class OtelExporterHealthIndicator implements HealthIndicator {
     public static final String STATUS_OUT_OF_SERVICE = "OUT_OF_SERVICE";
 
     private final List<LastSuccessSpanExporter> exporters;
-    private final PulseProperties.Health config;
+    private final PulseProperties.OtelExporterHealth config;
 
-    public OtelExporterHealthIndicator(List<LastSuccessSpanExporter> exporters, PulseProperties.Health config) {
+    public OtelExporterHealthIndicator(
+            List<LastSuccessSpanExporter> exporters, PulseProperties.OtelExporterHealth config) {
         this.exporters = exporters;
         this.config = config;
     }

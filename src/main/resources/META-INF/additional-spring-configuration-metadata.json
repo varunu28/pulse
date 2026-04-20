@@ -72,13 +72,78 @@
     },
     {
       "name": "pulse.health",
-      "type": "io.github.arun0009.pulse.autoconfigure.PulseProperties$Health",
-      "description": "Pulse-supplied Spring Boot HealthIndicators. The OTel exporter indicator reports a degraded state when no span has been successfully exported within otel-exporter-stale-after — useful for catching collector outages that would otherwise be silent."
+      "type": "io.github.arun0009.pulse.autoconfigure.PulseProperties$OtelExporterHealth",
+      "description": "Pulse's OTel-exporter HealthIndicator. Reports a degraded state when no span has been successfully exported within otel-exporter-stale-after — useful for catching collector outages that would otherwise be silent. Distinct from pulse.dependencies.health which covers downstream-service RED health."
     },
     {
       "name": "pulse.shutdown",
       "type": "io.github.arun0009.pulse.autoconfigure.PulseProperties$Shutdown",
-      "description": "JVM shutdown lifecycle. otel-flush-enabled blocks shutdown for up to otel-flush-timeout so the BatchSpanProcessor can drain queued spans — without this the last few hundred spans before a rolling deploy are lost."
+      "description": "JVM shutdown lifecycle. otel-flush-enabled blocks shutdown for up to otel-flush-timeout so the BatchSpanProcessor can drain queued spans — without this the last few hundred spans before a rolling deploy are lost. drain.enabled observes server.shutdown=graceful draining and emits structured before/after metrics."
+    },
+    {
+      "name": "pulse.jobs",
+      "type": "io.github.arun0009.pulse.autoconfigure.PulseProperties$Jobs",
+      "description": "Background-job observability. Wraps every @Scheduled method (and any TaskScheduler Runnable) with pulse.jobs.executions/duration/in_flight meters and exposes a jobs HealthIndicator that flips DOWN when a registered job has not succeeded within failure-grace-period."
+    },
+    {
+      "name": "pulse.db",
+      "type": "io.github.arun0009.pulse.autoconfigure.PulseProperties$Db",
+      "description": "Database observability. Wires a Hibernate StatementInspector that counts prepared statements per request, emits pulse.db.statements_per_request{endpoint}, and fires pulse.db.n_plus_one.suspect + a WARN log with traceId when any request exceeds n-plus-one-threshold. Slow queries flow through Hibernate's SQL_SLOW logger, automatically JSON-correlated with the originating trace."
+    },
+    {
+      "name": "pulse.resilience",
+      "type": "io.github.arun0009.pulse.autoconfigure.PulseProperties$Resilience",
+      "description": "Resilience4j auto-instrumentation. Attaches event consumers to CircuitBreakerRegistry, RetryRegistry, and BulkheadRegistry that turn state transitions, retries, and rejections into counters + span events + structured logs. Each observer is independently gated on its registry being present."
+    },
+    {
+      "name": "pulse.profiling",
+      "type": "io.github.arun0009.pulse.autoconfigure.PulseProperties$Profiling",
+      "description": "Continuous-profiling correlation. Stamps profile.id + pyroscope.profile_id on every span using the trace id, enabling one-click flame-graph links. Setting pyroscope-url adds a per-trace pulse.profile.url attribute on root spans. Pulse never starts a profiler — it detects the existing -javaagent:pyroscope.jar and surfaces it in /actuator/pulse."
+    },
+    {
+      "name": "pulse.dependencies",
+      "type": "io.github.arun0009.pulse.autoconfigure.PulseProperties$Dependencies",
+      "description": "Dependency health map. Tags every outbound HTTP + Kafka call with a logical pulse.dependency derived from the host → name table and emits per-dependency RED signals (requests, latency, fan_out, distinct_dependencies). Cardinality is bounded by your dependency count, not your endpoint count."
+    },
+    {
+      "name": "pulse.dependencies.health",
+      "type": "io.github.arun0009.pulse.autoconfigure.PulseProperties$Dependencies$Health",
+      "description": "Topology-aware dependency HealthIndicator. Infers downstream state from pulse.dependency.requests/latency meters (never calls the downstream directly) and reports DEGRADED when a critical dependency exceeds error-rate-threshold. down=true escalates to OUT_OF_SERVICE so Kubernetes readiness flips."
+    },
+    {
+      "name": "pulse.tenant",
+      "type": "io.github.arun0009.pulse.autoconfigure.PulseProperties$Tenant",
+      "description": "Multi-tenant context. Extracts tenant id (header / JWT claim / subdomain), propagates it on MDC + OTel baggage + outbound headers, and optionally tags the meters named in tag-meters. max-tag-cardinality is a tenant-specific cap that sits on top of pulse.cardinality.max-tag-values-per-meter."
+    },
+    {
+      "name": "pulse.retry",
+      "type": "io.github.arun0009.pulse.autoconfigure.PulseProperties$Retry",
+      "description": "Retry amplification detection. Propagates a hop counter through the call chain so Pulse can spot 'A retries 3x → B retries 3x → C takes 9x traffic' cascades before they become outages. Fires pulse.retry.amplification + a WARN + a span event when inbound depth exceeds amplification-threshold."
+    },
+    {
+      "name": "pulse.priority",
+      "type": "io.github.arun0009.pulse.autoconfigure.PulseProperties$Priority",
+      "description": "Request criticality propagation (critical / high / normal / low / background). Mirrors the value onto MDC + OTel baggage + outbound headers. tag-meters lets you stamp priority on selected meters without the cardinality firewall coupling — the five-tier vocabulary is bounded by design."
+    },
+    {
+      "name": "pulse.container-memory",
+      "type": "io.github.arun0009.pulse.autoconfigure.PulseProperties$ContainerMemory",
+      "description": "Container (cgroup) memory observability. Reads cgroup v1/v2 memory.usage + memory.max and exposes pulse.container.memory.used/limit/headroom_ratio/oom_kills — the signals actually needed to diagnose OOMKilled-with-healthy-heap mysteries. No-op on macOS / Windows / non-cgroup hosts so the same starter works on laptops and in Kubernetes."
+    },
+    {
+      "name": "pulse.open-feature",
+      "type": "io.github.arun0009.pulse.autoconfigure.PulseProperties$OpenFeature",
+      "description": "OpenFeature integration. Registers Pulse's MDC hook (flag values flow onto MDC + span events) and — if dev.openfeature.contrib.hooks:otel is on the classpath — the OTel-semconv hook, without requiring the consumer to wire either manually."
+    },
+    {
+      "name": "pulse.cache",
+      "type": "io.github.arun0009.pulse.autoconfigure.PulseProperties$Cache",
+      "description": "Cache observability. Binds every CaffeineCacheManager bean to Micrometer (cache.gets/puts/evictions/hit_ratio). Pulse never mutates the operator's Caffeine spec; if recordStats() is missing, the bind still happens (meters report zero) and a one-time WARN is logged."
+    },
+    {
+      "name": "pulse.profile-presets",
+      "type": "io.github.arun0009.pulse.autoconfigure.PulseProperties$ProfilePresets",
+      "description": "Auto-applies Pulse-shipped profile presets (pulse-dev / pulse-prod / pulse-test / pulse-canary) whenever the matching base profile (dev / prod / test / canary) is active. Set auto-apply=false to keep Pulse hands-off. Extend the presets map to teach Pulse about your own profile names (e.g. stage → pulse-prod)."
     }
   ],
   "properties": [

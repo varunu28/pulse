@@ -16,8 +16,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class OtelExporterHealthIndicatorTest {
 
-    private static PulseProperties.Health config(Duration staleAfter) {
-        return new PulseProperties.Health(true, staleAfter);
+    private static PulseProperties.OtelExporterHealth config(Duration staleAfter) {
+        return new PulseProperties.OtelExporterHealth(true, staleAfter);
     }
 
     @Test

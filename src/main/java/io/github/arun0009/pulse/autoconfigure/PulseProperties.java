@@ -56,7 +56,7 @@ public record PulseProperties(
         @DefaultValue @Valid Banner banner,
         @DefaultValue @Valid Histograms histograms,
         @DefaultValue @Valid Slo slo,
-        @DefaultValue @Valid Health health,
+        @DefaultValue @Valid OtelExporterHealth health,
         @DefaultValue @Valid Shutdown shutdown,
         @DefaultValue @Valid Jobs jobs,
         @DefaultValue @Valid Db db,
@@ -293,11 +293,15 @@ public record PulseProperties(
     }
 
     /**
-     * Pulse-supplied health indicators. The OTel exporter health indicator reports a degraded
-     * state when no span has been successfully exported within {@link #otelExporterStaleAfter()}.
-     * Disable if your service intentionally stays idle for long stretches.
+     * Pulse's OTel-exporter health indicator — reports a degraded state when no span has been
+     * successfully exported within {@link #otelExporterStaleAfter()}. Disable if your service
+     * intentionally stays idle for long stretches.
+     *
+     * <p>Distinct from {@link Dependencies.Health}, which is the per-downstream RED-based
+     * health indicator. The two are intentionally decoupled: exporter health is about "can I
+     * observe myself?", dependency health is about "are my downstreams healthy?".
      */
-    public record Health(
+    public record OtelExporterHealth(
             @DefaultValue("true") boolean otelExporterEnabled,
             @DefaultValue("5m") Duration otelExporterStaleAfter) {}
 
