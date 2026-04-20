@@ -19,6 +19,31 @@ import java.util.regex.Pattern;
  * Resolves OpenTelemetry resource attributes that identify <em>where</em> the JVM is running:
  * the host, the container, the Kubernetes pod/node/namespace, and the cloud provider/region/AZ.
  *
+ * <h2>Extending</h2>
+ *
+ * <p>Pulse 2.0 opens this class for subclassing so teams that need extra resource attributes
+ * (custom deployment ids, tenant tags, internal cell identifiers) can extend it without
+ * forking the detection chain. Two extension points are available:
+ *
+ * <ul>
+ *   <li>Override {@link #contributeAdditional()} to <em>add</em> attributes — they are merged
+ *       into {@link #resolveAll()} alongside the built-ins (built-ins win on key collision so
+ *       the OTel semconv keys stay canonical).</li>
+ *   <li>Override any of the protected accessors ({@link #hostName()}, {@link #containerId()},
+ *       …, {@link #detectCloud()}) to <em>replace</em> a single detection — useful when your
+ *       platform exposes the same value through a more reliable source (a downward-API file
+ *       instead of an env var, the EC2 metadata service instead of {@code AWS_REGION}).</li>
+ * </ul>
+ *
+ * <p>To activate a custom resolver at startup, register it with Spring's {@code spring.factories}
+ * so the {@link PulseLoggingEnvironmentPostProcessor} picks it up before any bean exists:
+ *
+ * <pre>
+ * # src/main/resources/META-INF/spring.factories
+ * io.github.arun0009.pulse.logging.ResourceAttributeResolver=\
+ *     com.acme.observability.AcmeResourceAttributeResolver
+ * </pre>
+ *
  * <p>These attributes are <em>per-process</em> (not per-request), so the resolver runs once at
  * startup. The resolved values are written as JVM system properties by
  * {@link PulseLoggingEnvironmentPostProcessor}, where they are then stamped on every log line
@@ -63,7 +88,7 @@ import java.util.regex.Pattern;
  * read access to {@code /proc}. {@link SecurityException} from {@link System#getenv(String)} is
  * also tolerated for hardened JVM deployments.
  */
-public final class ResourceAttributeResolver {
+public class ResourceAttributeResolver {
 
     /** OTel resource attribute keys checked in {@code OTEL_RESOURCE_ATTRIBUTES}. */
     static final String OTEL_HOST_NAME = "host.name";
@@ -104,15 +129,29 @@ public final class ResourceAttributeResolver {
     private final HostNameProvider hostNameProvider;
 
     public ResourceAttributeResolver() {
+        this(ResourceAttributeResolver::safeGetLocalHostName);
+    }
+
+    /**
+     * Public constructor accepting a custom {@link HostNameProvider} — the most common
+     * extension reason. The other lookups (env vars, system properties, cgroup file) are still
+     * the platform defaults; subclasses needing to swap those should use the protected
+     * test-seam constructor.
+     */
+    public ResourceAttributeResolver(HostNameProvider hostNameProvider) {
         this(
                 ResourceAttributeResolver::safeGetEnv,
                 ResourceAttributeResolver::safeGetSystemProperty,
                 ResourceAttributeResolver::safeReadFile,
-                ResourceAttributeResolver::safeGetLocalHostName);
+                hostNameProvider);
     }
 
-    // Package-private constructor for tests; lets us swap every external interaction.
-    ResourceAttributeResolver(
+    /**
+     * Test/extension constructor — lets subclasses swap every external interaction. Was
+     * package-private in 1.x and is now {@code protected} so user-supplied subclasses can
+     * stub I/O the same way Pulse's own tests do.
+     */
+    protected ResourceAttributeResolver(
             Function<String, @Nullable String> envLookup,
             Function<String, @Nullable String> systemPropertyLookup,
             Function<Path, @Nullable String> fileReader,
@@ -132,8 +171,15 @@ public final class ResourceAttributeResolver {
      * <p>The map preserves insertion order to make logs deterministic across runs of the same
      * process, simplifying snapshot tests downstream.
      */
-    public Map<String, String> resolveAll() {
+    public final Map<String, String> resolveAll() {
         Map<String, String> out = new LinkedHashMap<>(8);
+
+        // Subclass extras first so user keys are visible to debugging, but built-in OTel
+        // semconv keys take precedence on collision so dashboards keep their canonical shape.
+        for (Map.Entry<String, String> extra : contributeAdditional().entrySet()) {
+            putIfPresent(out, extra.getKey(), extra.getValue());
+        }
+
         putIfPresent(out, OTEL_HOST_NAME, hostName());
         putIfPresent(out, OTEL_CONTAINER_ID, containerId());
         putIfPresent(out, OTEL_K8S_POD_NAME, kubernetesPodName());
@@ -146,7 +192,23 @@ public final class ResourceAttributeResolver {
         return out;
     }
 
-    @Nullable String hostName() {
+    /**
+     * Extension hook for adding custom attributes that {@link #resolveAll()} should expose
+     * alongside the built-in OTel semconv detections. Built-in keys win on collision so the
+     * canonical OTel shape is preserved; user keys should follow the OTel naming conventions
+     * (dot-segmented, lower-snake) so downstream dashboards can group them sensibly.
+     *
+     * <p>Default implementation returns an empty map. Subclasses override to contribute, for
+     * example, {@code deployment.id}, {@code instance.type}, or {@code cell.name}.
+     *
+     * <p>Implementations must be cheap (called once at startup) and must never throw.
+     */
+    protected Map<String, String> contributeAdditional() {
+        return Map.of();
+    }
+
+    /** Resolved {@code host.name} attribute, or {@code null} if every source returned blank. */
+    protected @Nullable String hostName() {
         String fromOtel = fromOtelResourceAttribute(OTEL_HOST_NAME);
         if (fromOtel != null) return fromOtel;
 
@@ -157,7 +219,8 @@ public final class ResourceAttributeResolver {
         return blankToNull(fromInet);
     }
 
-    @Nullable String containerId() {
+    /** Resolved {@code container.id} attribute, or {@code null} if no source produced one. */
+    protected @Nullable String containerId() {
         String fromOtel = fromOtelResourceAttribute(OTEL_CONTAINER_ID);
         if (fromOtel != null) return fromOtel;
 
@@ -168,7 +231,8 @@ public final class ResourceAttributeResolver {
         return matcher.find() ? matcher.group() : null;
     }
 
-    @Nullable String kubernetesPodName() {
+    /** Resolved {@code k8s.pod.name} attribute, or {@code null} when not running on K8s. */
+    protected @Nullable String kubernetesPodName() {
         String fromOtel = fromOtelResourceAttribute(OTEL_K8S_POD_NAME);
         if (fromOtel != null) return fromOtel;
 
@@ -184,7 +248,8 @@ public final class ResourceAttributeResolver {
         return null;
     }
 
-    @Nullable String kubernetesNamespace() {
+    /** Resolved {@code k8s.namespace.name} attribute, or {@code null} when not running on K8s. */
+    protected @Nullable String kubernetesNamespace() {
         String fromOtel = fromOtelResourceAttribute(OTEL_K8S_NAMESPACE);
         if (fromOtel != null) return fromOtel;
 
@@ -196,7 +261,8 @@ public final class ResourceAttributeResolver {
         return fileReader.apply(Path.of(K8S_NAMESPACE_FILE));
     }
 
-    @Nullable String kubernetesNodeName() {
+    /** Resolved {@code k8s.node.name} attribute, or {@code null} when not running on K8s. */
+    protected @Nullable String kubernetesNodeName() {
         String fromOtel = fromOtelResourceAttribute(OTEL_K8S_NODE_NAME);
         if (fromOtel != null) return fromOtel;
         return firstNonBlank(NODE_NAME_ENV_VARS);
@@ -207,7 +273,7 @@ public final class ResourceAttributeResolver {
      * consistent — we never want to label a log line as {@code cloud.provider=aws,
      * cloud.region=us-central1} because two different probes ran independently.
      */
-    CloudPlatform detectCloud() {
+    protected CloudPlatform detectCloud() {
         String otelProvider = fromOtelResourceAttribute(OTEL_CLOUD_PROVIDER);
         String otelRegion = fromOtelResourceAttribute(OTEL_CLOUD_REGION);
         String otelAz = fromOtelResourceAttribute(OTEL_CLOUD_AZ);
@@ -296,16 +362,10 @@ public final class ResourceAttributeResolver {
      * Captures detected cloud-platform attributes as a single immutable triple so callers can't
      * accidentally mix providers and regions across different detection paths.
      */
-    record CloudPlatform(
+    public record CloudPlatform(
             @Nullable String provider,
             @Nullable String region,
             @Nullable String availabilityZone) {
-        static final CloudPlatform NONE = new CloudPlatform(null, null, null);
-    }
-
-    /** Test seam for {@link InetAddress#getLocalHost()} — production wires the real call. */
-    @FunctionalInterface
-    interface HostNameProvider {
-        @Nullable String localHostName();
+        public static final CloudPlatform NONE = new CloudPlatform(null, null, null);
     }
 }

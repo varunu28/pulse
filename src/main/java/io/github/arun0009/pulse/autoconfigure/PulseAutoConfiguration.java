@@ -26,7 +26,9 @@ import io.github.arun0009.pulse.jobs.InstrumentedTaskScheduler;
 import io.github.arun0009.pulse.jobs.JobRegistry;
 import io.github.arun0009.pulse.jobs.JobsHealthIndicator;
 import io.github.arun0009.pulse.jobs.JobsProperties;
+import io.github.arun0009.pulse.logging.HostNameProvider;
 import io.github.arun0009.pulse.logging.LoggingProperties;
+import io.github.arun0009.pulse.logging.ResourceAttributeResolver;
 import io.github.arun0009.pulse.metrics.BusinessMetrics;
 import io.github.arun0009.pulse.metrics.DeployInfoMetrics;
 import io.github.arun0009.pulse.metrics.HistogramMeterFilter;
@@ -136,6 +138,40 @@ public class PulseAutoConfiguration {
     @ConditionalOnMissingBean
     public PulseEnforcementMode pulseEnforcementMode(EnforcementProperties properties) {
         return new PulseEnforcementMode(properties.mode());
+    }
+
+    /**
+     * Default {@link HostNameProvider} bean — wraps {@link java.net.InetAddress#getLocalHost()}
+     * with the same defensive try-catch the resource-attribute resolver uses at startup. Users
+     * who want to override host detection can publish their own {@code HostNameProvider} bean
+     * (replaces this one via {@code @ConditionalOnMissingBean}) <em>and</em> register the same
+     * implementation in {@code META-INF/spring.factories} so it is also picked up at
+     * {@code EnvironmentPostProcessor} time, before any bean exists.
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public HostNameProvider pulseHostNameProvider() {
+        return () -> {
+            try {
+                return java.net.InetAddress.getLocalHost().getHostName();
+            } catch (java.net.UnknownHostException | SecurityException ignored) {
+                return null;
+            }
+        };
+    }
+
+    /**
+     * Runtime-side {@link ResourceAttributeResolver} bean — exposes the same detection logic
+     * the EPP uses at startup so application code can inject the resolved attribute map at
+     * runtime (e.g., for custom health indicators or audit log enrichment). Users who
+     * subclass {@code ResourceAttributeResolver} and register the subclass via
+     * {@code spring.factories} should also publish it as a {@code @Bean} to keep the EPP and
+     * runtime views consistent.
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public ResourceAttributeResolver pulseResourceAttributeResolver(HostNameProvider hostNameProvider) {
+        return new ResourceAttributeResolver(hostNameProvider);
     }
 
     @Bean

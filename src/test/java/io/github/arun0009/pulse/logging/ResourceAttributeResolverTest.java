@@ -290,8 +290,23 @@ class ResourceAttributeResolverTest {
             Function<String, @Nullable String> env,
             Function<String, @Nullable String> sysProp,
             Function<Path, @Nullable String> file,
-            ResourceAttributeResolver.HostNameProvider hostName) {
-        return new ResourceAttributeResolver(env, sysProp, file, hostName);
+            HostNameProvider hostName) {
+        return new TestResourceAttributeResolver(env, sysProp, file, hostName);
+    }
+
+    /**
+     * Subclass that exposes the {@code protected} constructor for tests. The production class
+     * is now extensible (Pulse 2.0) — by going through a subclass we also exercise the
+     * extension contract instead of bypassing it.
+     */
+    private static final class TestResourceAttributeResolver extends ResourceAttributeResolver {
+        TestResourceAttributeResolver(
+                Function<String, @Nullable String> envLookup,
+                Function<String, @Nullable String> systemPropertyLookup,
+                Function<Path, @Nullable String> fileReader,
+                HostNameProvider hostNameProvider) {
+            super(envLookup, systemPropertyLookup, fileReader, hostNameProvider);
+        }
     }
 
     /** Build a stub env from {@code (key, value, key, value, …)} pairs, returning null for misses. */

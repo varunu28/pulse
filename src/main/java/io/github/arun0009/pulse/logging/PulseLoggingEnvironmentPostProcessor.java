@@ -5,6 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.Ordered;
 import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.io.support.SpringFactoriesLoader;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -95,7 +96,7 @@ public final class PulseLoggingEnvironmentPostProcessor implements EnvironmentPo
     private final ResourceAttributeResolver resourceAttributeResolver;
 
     public PulseLoggingEnvironmentPostProcessor() {
-        this(System::getenv, defaultClassLoader(), new ResourceAttributeResolver());
+        this(System::getenv, defaultClassLoader(), discoverResolver(defaultClassLoader()));
     }
 
     // Package-private for tests.
@@ -106,6 +107,33 @@ public final class PulseLoggingEnvironmentPostProcessor implements EnvironmentPo
         this.envLookup = envLookup;
         this.classLoader = classLoader;
         this.resourceAttributeResolver = resourceAttributeResolver;
+    }
+
+    /**
+     * Discovers a user-supplied {@link ResourceAttributeResolver} or {@link HostNameProvider}
+     * via Spring's {@code spring.factories} mechanism so extensions work even at this stage
+     * (before any {@code @Bean} exists). Resolution order:
+     *
+     * <ol>
+     *   <li>If the user registered a {@code ResourceAttributeResolver} subclass, use that
+     *       (full replacement of the detection chain).</li>
+     *   <li>Otherwise, build a stock resolver wrapping the user's {@code HostNameProvider}
+     *       implementation if present.</li>
+     *   <li>Otherwise, build a stock resolver with all defaults.</li>
+     * </ol>
+     */
+    private static ResourceAttributeResolver discoverResolver(ClassLoader classLoader) {
+        SpringFactoriesLoader factories =
+                SpringFactoriesLoader.forResourceLocation("META-INF/spring.factories", classLoader);
+        List<ResourceAttributeResolver> resolvers = factories.load(ResourceAttributeResolver.class);
+        if (!resolvers.isEmpty()) {
+            return resolvers.get(0);
+        }
+        List<HostNameProvider> hostProviders = factories.load(HostNameProvider.class);
+        if (!hostProviders.isEmpty()) {
+            return new ResourceAttributeResolver(hostProviders.get(0));
+        }
+        return new ResourceAttributeResolver();
     }
 
     @Override
