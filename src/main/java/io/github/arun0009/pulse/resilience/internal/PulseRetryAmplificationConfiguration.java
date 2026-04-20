@@ -4,7 +4,9 @@ import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.resilience.RetryDepthFilter;
 import io.github.arun0009.pulse.resilience.RetryProperties;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.tracing.Tracer;
 import jakarta.servlet.Filter;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -39,8 +41,8 @@ public class PulseRetryAmplificationConfiguration {
         @Bean
         @ConditionalOnMissingBean(name = "pulseRetryDepthFilter")
         public FilterRegistrationBean<RetryDepthFilter> pulseRetryDepthFilter(
-                RetryProperties retry, MeterRegistry registry) {
-            RetryDepthFilter filter = new RetryDepthFilter(retry, registry);
+                RetryProperties retry, MeterRegistry registry, ObjectProvider<Tracer> tracer) {
+            RetryDepthFilter filter = new RetryDepthFilter(retry, registry, tracer.getIfAvailable(() -> Tracer.NOOP));
             FilterRegistrationBean<RetryDepthFilter> reg = new FilterRegistrationBean<>(filter);
             reg.setOrder(filter.getOrder());
             reg.addUrlPatterns("/*");

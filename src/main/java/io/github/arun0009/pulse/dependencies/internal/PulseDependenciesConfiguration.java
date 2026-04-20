@@ -13,6 +13,7 @@ import io.github.arun0009.pulse.dependencies.DependencyOutboundRecorder;
 import io.github.arun0009.pulse.dependencies.DependencyResolver;
 import io.github.arun0009.pulse.dependencies.RequestFanoutFilter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.tracing.Tracer;
 import okhttp3.OkHttpClient;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
@@ -187,13 +188,14 @@ public class PulseDependenciesConfiguration {
         public FilterRegistrationBean<RequestFanoutFilter> pulseRequestFanoutFilterRegistration(
                 MeterRegistry registry,
                 DependenciesProperties properties,
-                ObjectProvider<PulseRequestMatcherFactory> matcherFactory) {
+                ObjectProvider<PulseRequestMatcherFactory> matcherFactory,
+                ObjectProvider<Tracer> tracer) {
             PulseRequestMatcherFactory factory = matcherFactory.getIfAvailable();
             PulseRequestMatcher gate = factory == null
                     ? PulseRequestMatcher.ALWAYS
                     : factory.build("dependencies.fan-out", properties.enabledWhen());
-            FilterRegistrationBean<RequestFanoutFilter> reg =
-                    new FilterRegistrationBean<>(new RequestFanoutFilter(registry, properties, gate));
+            FilterRegistrationBean<RequestFanoutFilter> reg = new FilterRegistrationBean<>(
+                    new RequestFanoutFilter(registry, properties, gate, tracer.getIfAvailable(() -> Tracer.NOOP)));
             // Run very late so the thread-local is initialized after auth/MDC filters and
             // closed before request logging. HIGHEST_PRECEDENCE-1 would be wrong because the
             // outbound calls happen inside the controller, which is called by the chain — we

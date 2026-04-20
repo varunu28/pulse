@@ -1,15 +1,14 @@
 package io.github.arun0009.pulse.events;
 
+import io.github.arun0009.pulse.tracing.internal.PulseSpans;
 import io.micrometer.common.KeyValues;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
-import io.opentelemetry.api.common.AttributeKey;
-import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.api.common.AttributesBuilder;
-import io.opentelemetry.api.trace.Span;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,13 +48,14 @@ public final class SpanEvents {
     private final MeterRegistry registry;
     private final WideEventsProperties config;
     private final ObservationRegistry observationRegistry;
+    private final Tracer tracer;
 
     /**
      * Backwards-compatible constructor — the Observation seam is created in NOOP mode, which means
      * no handlers fire and zero overhead. Equivalent to pre-1.1 behaviour.
      */
     public SpanEvents(MeterRegistry registry, WideEventsProperties config) {
-        this(registry, config, ObservationRegistry.NOOP);
+        this(registry, config, ObservationRegistry.NOOP, Tracer.NOOP);
     }
 
     /**
@@ -68,9 +68,18 @@ public final class SpanEvents {
      *     regardless of the registry.
      */
     public SpanEvents(MeterRegistry registry, WideEventsProperties config, ObservationRegistry observationRegistry) {
+        this(registry, config, observationRegistry, Tracer.NOOP);
+    }
+
+    public SpanEvents(
+            MeterRegistry registry,
+            WideEventsProperties config,
+            ObservationRegistry observationRegistry,
+            Tracer tracer) {
         this.registry = registry;
         this.config = config;
         this.observationRegistry = observationRegistry == null ? ObservationRegistry.NOOP : observationRegistry;
+        this.tracer = tracer == null ? Tracer.NOOP : tracer;
     }
 
     /** Emits an event with no attributes — increments the counter and emits a log line. */
@@ -100,11 +109,16 @@ public final class SpanEvents {
         }
 
         try {
-            Span span = Span.current();
-            if (span.getSpanContext().isValid() && !attributes.isEmpty()) {
-                span.addEvent(name, toAttributes(attributes));
-            } else if (span.getSpanContext().isValid()) {
-                span.addEvent(name);
+            Span span = PulseSpans.recordable(tracer);
+            if (span != null) {
+                span.event(name);
+                // TODO(phase 4e): per-event attributes — Micrometer's Span has no addEvent(name,
+                // attrs) overload. Until the Observation refactor lands, attributes are stamped
+                // as span tags so they remain queryable, even though they are no longer scoped
+                // to the event.
+                if (!attributes.isEmpty()) {
+                    attributes.forEach((k, v) -> tagOnSpan(span, k, v));
+                }
             }
         } catch (Exception e) {
             log.debug("Pulse: failed to add span event '{}': {}", name, e.getMessage());
@@ -173,25 +187,22 @@ public final class SpanEvents {
         return KeyValues.of(kvs);
     }
 
-    private static Attributes toAttributes(Map<String, ?> source) {
-        AttributesBuilder builder = Attributes.builder();
-        source.forEach((k, v) -> putTyped(builder, k, v));
-        return builder.build();
-    }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private static void putTyped(AttributesBuilder builder, String key, Object value) {
+    /**
+     * Tags an attribute on the active Micrometer span using its typed overloads when possible;
+     * falls back to {@code String.valueOf} for values the API can't represent natively.
+     */
+    private static void tagOnSpan(Span span, String key, @Nullable Object value) {
         switch (value) {
             case null -> {
-                /* OTel attributes do not accept null values */
+                /* tracing API has no null-tag concept */
             }
-            case String s -> builder.put(AttributeKey.stringKey(key), s);
-            case Boolean b -> builder.put(AttributeKey.booleanKey(key), b);
-            case Long l -> builder.put(AttributeKey.longKey(key), l);
-            case Integer i -> builder.put(AttributeKey.longKey(key), i.longValue());
-            case Double d -> builder.put(AttributeKey.doubleKey(key), d);
-            case Float f -> builder.put(AttributeKey.doubleKey(key), f.doubleValue());
-            default -> builder.put(AttributeKey.stringKey(key), String.valueOf(value));
+            case String s -> span.tag(key, s);
+            case Boolean b -> span.tag(key, b);
+            case Long l -> span.tag(key, l);
+            case Integer i -> span.tag(key, i.longValue());
+            case Double d -> span.tag(key, d);
+            case Float f -> span.tag(key, f.doubleValue());
+            default -> span.tag(key, String.valueOf(value));
         }
     }
 

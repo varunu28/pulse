@@ -53,6 +53,7 @@ import io.github.arun0009.pulse.startup.PulseStartupBanner;
 import io.github.arun0009.pulse.tenant.TenantProperties;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.config.MeterFilter;
+import io.micrometer.tracing.Tracer;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -203,11 +204,13 @@ public class PulseAutoConfiguration {
     public SpanEvents pulseSpanEvents(
             MeterRegistry registry,
             WideEventsProperties properties,
-            ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistry) {
+            ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistry,
+            ObjectProvider<Tracer> tracer) {
         return new SpanEvents(
                 registry,
                 properties,
-                observationRegistry.getIfAvailable(() -> io.micrometer.observation.ObservationRegistry.NOOP));
+                observationRegistry.getIfAvailable(() -> io.micrometer.observation.ObservationRegistry.NOOP),
+                tracer.getIfAvailable(() -> Tracer.NOOP));
     }
 
     @Bean

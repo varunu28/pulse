@@ -3,10 +3,11 @@ package io.github.arun0009.pulse.resilience;
 import io.github.arun0009.pulse.core.ContextKeys;
 import io.github.arun0009.pulse.core.PulseRequestContextFilter;
 import io.github.arun0009.pulse.core.RouteTags;
+import io.github.arun0009.pulse.tracing.internal.PulseSpans;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.SpanContext;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,11 +44,17 @@ public final class RetryDepthFilter extends OncePerRequestFilter implements Orde
     private final String headerName;
     private final int amplificationThreshold;
     private final MeterRegistry registry;
+    private final Tracer tracer;
 
     public RetryDepthFilter(RetryProperties config, MeterRegistry registry) {
+        this(config, registry, Tracer.NOOP);
+    }
+
+    public RetryDepthFilter(RetryProperties config, MeterRegistry registry, Tracer tracer) {
         this.headerName = config.headerName();
         this.amplificationThreshold = config.amplificationThreshold();
         this.registry = registry;
+        this.tracer = tracer == null ? Tracer.NOOP : tracer;
     }
 
     @Override
@@ -68,11 +75,10 @@ public final class RetryDepthFilter extends OncePerRequestFilter implements Orde
                 MDC.put(MDC_KEY, Integer.toString(inbound));
             }
             if (amplified) {
-                Span span = Span.current();
-                SpanContext context = span.getSpanContext();
-                if (context.isValid()) {
-                    span.addEvent("pulse.retry.amplification");
-                    span.setAttribute("pulse.retry.depth", inbound);
+                Span span = PulseSpans.recordable(tracer);
+                if (span != null) {
+                    span.event("pulse.retry.amplification");
+                    span.tag("pulse.retry.depth", inbound);
                 }
             }
             chain.doFilter(request, response);

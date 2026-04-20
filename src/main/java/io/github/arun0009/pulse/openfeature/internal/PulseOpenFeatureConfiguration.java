@@ -3,8 +3,10 @@ package io.github.arun0009.pulse.openfeature.internal;
 import dev.openfeature.sdk.OpenFeatureAPI;
 import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.openfeature.PulseOpenFeatureMdcHook;
+import io.micrometer.tracing.Tracer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -36,8 +38,8 @@ public class PulseOpenFeatureConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public PulseOpenFeatureMdcHook pulseOpenFeatureMdcHook() {
-        PulseOpenFeatureMdcHook hook = new PulseOpenFeatureMdcHook();
+    public PulseOpenFeatureMdcHook pulseOpenFeatureMdcHook(ObjectProvider<Tracer> tracer) {
+        PulseOpenFeatureMdcHook hook = new PulseOpenFeatureMdcHook(tracer.getIfAvailable(() -> Tracer.NOOP));
         try {
             OpenFeatureAPI.getInstance().addHooks(hook);
         } catch (RuntimeException e) {

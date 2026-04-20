@@ -1,10 +1,10 @@
 package io.github.arun0009.pulse.core;
 
 import io.github.arun0009.pulse.enforcement.PulseEnforcementMode;
+import io.github.arun0009.pulse.tracing.internal.PulseSpans;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.SpanContext;
+import io.micrometer.tracing.Tracer;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,11 +33,12 @@ import java.util.List;
  * <p>Resolution order for "do we have trace context?":
  *
  * <ol>
- *   <li>Check the live OpenTelemetry {@link Span} — Spring Boot's OTel starter has already run
- *       its propagator at this point in the chain, so this is the source of truth.
- *   <li>If the OTel context is missing, fall back to the W3C {@code traceparent} header (and
- *       legacy B3 {@code X-B3-TraceId}) so we still detect the case where the OTel SDK is
- *       absent or disabled.
+ *   <li>Check the live Micrometer {@link Tracer#currentSpan() current span} — Spring Boot's
+ *       tracing starter (Micrometer Tracing + OTel/Brave bridge) has already run its propagator
+ *       by this point in the chain, so this is the source of truth.
+ *   <li>If the tracing context is missing, fall back to the W3C {@code traceparent} header
+ *       (and legacy B3 {@code X-B3-TraceId}) so we still detect the case where no tracer is
+ *       wired or tracing is disabled.
  * </ol>
  *
  * <p>Behavior on missing context is governed by {@link TraceGuardProperties#failOnMissing()}.
@@ -68,16 +69,27 @@ public class TraceGuardFilter extends OncePerRequestFilter implements Ordered {
     private final TraceGuardProperties config;
     private final PulseRequestMatcher gate;
     private final PulseEnforcementMode enforcement;
+    private final Tracer tracer;
 
     public TraceGuardFilter(
             MeterRegistry registry,
             TraceGuardProperties config,
             PulseRequestMatcher gate,
             PulseEnforcementMode enforcement) {
+        this(registry, config, gate, enforcement, Tracer.NOOP);
+    }
+
+    public TraceGuardFilter(
+            MeterRegistry registry,
+            TraceGuardProperties config,
+            PulseRequestMatcher gate,
+            PulseEnforcementMode enforcement,
+            Tracer tracer) {
         this.registry = registry;
         this.config = config;
         this.gate = gate;
         this.enforcement = enforcement;
+        this.tracer = tracer == null ? Tracer.NOOP : tracer;
     }
 
     @Override
@@ -100,7 +112,7 @@ public class TraceGuardFilter extends OncePerRequestFilter implements Ordered {
         }
 
         String routeTag = RouteTags.of(request);
-        boolean hasTrace = hasTraceContext(request);
+        boolean hasTrace = hasTraceContext(request, tracer);
 
         if (hasTrace) {
             Counter.builder("pulse.trace.received")
@@ -133,9 +145,8 @@ public class TraceGuardFilter extends OncePerRequestFilter implements Ordered {
         chain.doFilter(request, response);
     }
 
-    private static boolean hasTraceContext(HttpServletRequest request) {
-        SpanContext spanContext = Span.current().getSpanContext();
-        if (spanContext.isValid()) return true;
+    private static boolean hasTraceContext(HttpServletRequest request, Tracer tracer) {
+        if (PulseSpans.hasValidContext(tracer)) return true;
         return request.getHeader(TRACEPARENT) != null || request.getHeader(B3_TRACE_ID) != null;
     }
 

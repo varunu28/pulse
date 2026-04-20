@@ -2,11 +2,13 @@ package io.github.arun0009.pulse.dependencies;
 
 import io.github.arun0009.pulse.core.PulseRequestMatcher;
 import io.github.arun0009.pulse.core.RouteTags;
+import io.github.arun0009.pulse.tracing.internal.PulseSpans;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
-import io.opentelemetry.api.trace.Span;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -50,15 +52,22 @@ public final class RequestFanoutFilter extends OncePerRequestFilter {
     private final MeterRegistry registry;
     private final int fanOutWarnThreshold;
     private final PulseRequestMatcher gate;
+    private final Tracer tracer;
 
     public RequestFanoutFilter(MeterRegistry registry, DependenciesProperties config) {
-        this(registry, config, PulseRequestMatcher.ALWAYS);
+        this(registry, config, PulseRequestMatcher.ALWAYS, Tracer.NOOP);
     }
 
     public RequestFanoutFilter(MeterRegistry registry, DependenciesProperties config, PulseRequestMatcher gate) {
+        this(registry, config, gate, Tracer.NOOP);
+    }
+
+    public RequestFanoutFilter(
+            MeterRegistry registry, DependenciesProperties config, PulseRequestMatcher gate, Tracer tracer) {
         this.registry = registry;
         this.fanOutWarnThreshold = config.fanOutWarnThreshold();
         this.gate = gate;
+        this.tracer = tracer == null ? Tracer.NOOP : tracer;
     }
 
     @Override
@@ -96,10 +105,10 @@ public final class RequestFanoutFilter extends OncePerRequestFilter {
                             fanOutWarnThreshold,
                             RouteTags.of(request));
                 }
-                Span current = Span.current();
-                if (current.getSpanContext().isValid()) {
-                    current.setAttribute("pulse.request.fan_out", snap.totalCalls());
-                    current.setAttribute("pulse.request.distinct_dependencies", snap.distinctDependencies());
+                Span current = PulseSpans.recordable(tracer);
+                if (current != null) {
+                    current.tag("pulse.request.fan_out", snap.totalCalls());
+                    current.tag("pulse.request.distinct_dependencies", snap.distinctDependencies());
                 }
             }
         }

@@ -2,11 +2,11 @@ package io.github.arun0009.pulse.exception;
 
 import io.github.arun0009.pulse.core.ContextKeys;
 import io.github.arun0009.pulse.core.PulseRequestMatcher;
+import io.github.arun0009.pulse.tracing.internal.PulseSpans;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.opentelemetry.api.common.AttributeKey;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.StatusCode;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import jakarta.servlet.http.HttpServletRequest;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -28,7 +28,8 @@ import java.net.URI;
  * Global RFC 7807 exception handler that:
  *
  * <ul>
- *   <li>marks the active OTel span as {@code ERROR} with the exception recorded;
+ *   <li>marks the active span as errored ({@code Span.error(throwable)}) — the bridge sets
+ *       the bridge-specific status (OTel: {@code ERROR}; Brave: {@code error} tag);
  *   <li>computes a stable {@link ExceptionFingerprint} and attaches it as a span attribute
  *       ({@code error.fingerprint}), MDC key, and {@code ProblemDetail} property — so dashboards
  *       can cluster recurrences of the same bug across deploys and hosts;
@@ -47,11 +48,11 @@ public class PulseExceptionHandler {
     public static final String FINGERPRINT_SPAN_ATTRIBUTE = "error.fingerprint";
 
     private static final Logger log = LoggerFactory.getLogger(PulseExceptionHandler.class);
-    private static final AttributeKey<String> FINGERPRINT_KEY = AttributeKey.stringKey(FINGERPRINT_SPAN_ATTRIBUTE);
 
     private final @Nullable MeterRegistry registry;
     private final ErrorFingerprintStrategy fingerprintStrategy;
     private final PulseRequestMatcher gate;
+    private final Tracer tracer;
 
     public PulseExceptionHandler() {
         this(null);
@@ -63,9 +64,18 @@ public class PulseExceptionHandler {
 
     public PulseExceptionHandler(
             @Nullable MeterRegistry registry, ErrorFingerprintStrategy fingerprintStrategy, PulseRequestMatcher gate) {
+        this(registry, fingerprintStrategy, gate, Tracer.NOOP);
+    }
+
+    public PulseExceptionHandler(
+            @Nullable MeterRegistry registry,
+            ErrorFingerprintStrategy fingerprintStrategy,
+            PulseRequestMatcher gate,
+            Tracer tracer) {
         this.registry = registry;
         this.fingerprintStrategy = fingerprintStrategy;
         this.gate = gate;
+        this.tracer = tracer == null ? Tracer.NOOP : tracer;
     }
 
     @ExceptionHandler(Exception.class)
@@ -81,10 +91,11 @@ public class PulseExceptionHandler {
         String fingerprint = chainResult != null ? chainResult : ExceptionFingerprint.of(ex);
         MDC.put(FINGERPRINT_MDC_KEY, fingerprint);
 
-        Span span = Span.current();
-        span.setStatus(StatusCode.ERROR, ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
-        span.setAttribute(FINGERPRINT_KEY, fingerprint);
-        span.recordException(ex);
+        Span span = PulseSpans.recordable(tracer);
+        if (span != null) {
+            span.tag(FINGERPRINT_SPAN_ATTRIBUTE, fingerprint);
+            span.error(ex);
+        }
 
         if (registry != null) {
             Counter.builder("pulse.errors.unhandled")

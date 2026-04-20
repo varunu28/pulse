@@ -8,6 +8,8 @@ import io.github.resilience4j.bulkhead.BulkheadRegistry;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.retry.RetryRegistry;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.tracing.Tracer;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -38,23 +40,25 @@ public class PulseResilience4jConfiguration {
     @ConditionalOnMissingBean
     @ConditionalOnBean(CircuitBreakerRegistry.class)
     public CircuitBreakerObservation pulseCircuitBreakerObservation(
-            CircuitBreakerRegistry registry, MeterRegistry meterRegistry) {
-        return new CircuitBreakerObservation(registry, meterRegistry);
+            CircuitBreakerRegistry registry, MeterRegistry meterRegistry, ObjectProvider<Tracer> tracer) {
+        return new CircuitBreakerObservation(registry, meterRegistry, tracer.getIfAvailable(() -> Tracer.NOOP));
     }
 
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnBean(RetryRegistry.class)
     @ConditionalOnClass(RetryRegistry.class)
-    public RetryObservation pulseRetryObservation(RetryRegistry registry, MeterRegistry meterRegistry) {
-        return new RetryObservation(registry, meterRegistry);
+    public RetryObservation pulseRetryObservation(
+            RetryRegistry registry, MeterRegistry meterRegistry, ObjectProvider<Tracer> tracer) {
+        return new RetryObservation(registry, meterRegistry, tracer.getIfAvailable(() -> Tracer.NOOP));
     }
 
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnBean(BulkheadRegistry.class)
     @ConditionalOnClass(BulkheadRegistry.class)
-    public BulkheadObservation pulseBulkheadObservation(BulkheadRegistry registry, MeterRegistry meterRegistry) {
-        return new BulkheadObservation(registry, meterRegistry);
+    public BulkheadObservation pulseBulkheadObservation(
+            BulkheadRegistry registry, MeterRegistry meterRegistry, ObjectProvider<Tracer> tracer) {
+        return new BulkheadObservation(registry, meterRegistry, tracer.getIfAvailable(() -> Tracer.NOOP));
     }
 }

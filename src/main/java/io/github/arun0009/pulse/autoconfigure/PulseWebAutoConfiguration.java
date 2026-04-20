@@ -18,6 +18,7 @@ import io.github.arun0009.pulse.guardrails.TimeoutBudgetFilter;
 import io.github.arun0009.pulse.guardrails.TimeoutBudgetProperties;
 import io.github.arun0009.pulse.slo.SloRuleGenerator;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.tracing.Tracer;
 import jakarta.servlet.Filter;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -75,9 +76,10 @@ public class PulseWebAutoConfiguration {
             MeterRegistry registry,
             TraceGuardProperties properties,
             PulseRequestMatcherFactory matcherFactory,
-            PulseEnforcementMode enforcement) {
+            PulseEnforcementMode enforcement,
+            ObjectProvider<Tracer> tracer) {
         PulseRequestMatcher gate = matcherFactory.build("trace-guard", properties.enabledWhen());
-        return new TraceGuardFilter(registry, properties, gate, enforcement);
+        return new TraceGuardFilter(registry, properties, gate, enforcement, tracer.getIfAvailable(() -> Tracer.NOOP));
     }
 
     @Bean
@@ -128,9 +130,11 @@ public class PulseWebAutoConfiguration {
             ObjectProvider<MeterRegistry> registry,
             @Qualifier("pulseErrorFingerprintStrategy") ErrorFingerprintStrategy fingerprintStrategy,
             ExceptionHandlerProperties properties,
-            PulseRequestMatcherFactory matcherFactory) {
+            PulseRequestMatcherFactory matcherFactory,
+            ObjectProvider<Tracer> tracer) {
         PulseRequestMatcher gate = matcherFactory.build("exception-handler", properties.enabledWhen());
-        return new PulseExceptionHandler(registry.getIfAvailable(), fingerprintStrategy, gate);
+        return new PulseExceptionHandler(
+                registry.getIfAvailable(), fingerprintStrategy, gate, tracer.getIfAvailable(() -> Tracer.NOOP));
     }
 
     @Bean

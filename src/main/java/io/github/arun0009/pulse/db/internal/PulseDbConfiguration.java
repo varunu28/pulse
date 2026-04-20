@@ -8,6 +8,7 @@ import io.github.arun0009.pulse.db.PulseDbObservationFilter;
 import io.github.arun0009.pulse.db.PulseHibernatePropertiesCustomizer;
 import io.github.arun0009.pulse.db.PulseStatementInspector;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.tracing.Tracer;
 import jakarta.servlet.Servlet;
 import org.hibernate.resource.jdbc.spi.StatementInspector;
 import org.springframework.beans.factory.ObjectProvider;
@@ -60,10 +61,11 @@ public class PulseDbConfiguration {
     public PulseDbObservationFilter pulseDbObservationFilter(
             MeterRegistry meterRegistry,
             DbProperties properties,
-            ObjectProvider<PulseRequestMatcherFactory> matcherFactory) {
+            ObjectProvider<PulseRequestMatcherFactory> matcherFactory,
+            ObjectProvider<Tracer> tracer) {
         PulseRequestMatcherFactory factory = matcherFactory.getIfAvailable();
         PulseRequestMatcher gate =
                 factory == null ? PulseRequestMatcher.ALWAYS : factory.build("db", properties.enabledWhen());
-        return new PulseDbObservationFilter(meterRegistry, properties, gate);
+        return new PulseDbObservationFilter(meterRegistry, properties, gate, tracer.getIfAvailable(() -> Tracer.NOOP));
     }
 }
