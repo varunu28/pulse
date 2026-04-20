@@ -59,6 +59,7 @@ import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.boot.info.BuildProperties;
@@ -376,6 +377,7 @@ public class PulseAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     @ConditionalOnClass(jakarta.servlet.Filter.class)
     @ConditionalOnProperty(
             prefix = "pulse.shutdown.drain",
@@ -388,6 +390,7 @@ public class PulseAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     @ConditionalOnClass(jakarta.servlet.Filter.class)
     @ConditionalOnProperty(
             prefix = "pulse.shutdown.drain",
@@ -404,18 +407,16 @@ public class PulseAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+    @ConditionalOnClass(jakarta.servlet.Filter.class)
     @ConditionalOnProperty(
             prefix = "pulse.shutdown.drain",
             name = "enabled",
             havingValue = "true",
             matchIfMissing = true)
     public PulseDrainObservabilityLifecycle pulseDrainObservabilityLifecycle(
-            ObjectProvider<InflightRequestCounter> counter, ShutdownProperties properties, MeterRegistry registry) {
-        InflightRequestCounter c = counter.getIfAvailable();
-        if (c == null) {
-            c = new InflightRequestCounter(registry);
-        }
-        return new PulseDrainObservabilityLifecycle(c, properties.drain(), registry);
+            InflightRequestCounter counter, ShutdownProperties properties, MeterRegistry registry) {
+        return new PulseDrainObservabilityLifecycle(counter, properties.drain(), registry);
     }
 
     @Bean

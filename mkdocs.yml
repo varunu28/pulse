@@ -96,7 +96,9 @@ extra:
 nav:
   - Home: index.md
   - Quick start: quickstart.md
-  - Concepts: concepts.md
+  - Concepts:
+      - Overview: concepts.md
+      - Web stack (Servlet-only): web-stack.md
   - Features:
       - features/index.md
       - Cross-cutting:
