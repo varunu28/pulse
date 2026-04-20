@@ -1,9 +1,11 @@
 package io.github.arun0009.pulse.priority.internal;
 
+import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
 import io.github.arun0009.pulse.priority.RequestPriorityFilter;
 import io.github.arun0009.pulse.priority.RequestPriorityObservationFilter;
 import jakarta.servlet.Servlet;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -19,7 +21,7 @@ import org.springframework.context.annotation.Configuration;
  * resolve the priority for inbound requests, while the observation filter only fires when the
  * operator opts in to {@code pulse.priority.tag-meters}.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration(after = PulseAutoConfiguration.class)
 @ConditionalOnProperty(prefix = "pulse.priority", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class PulsePriorityConfiguration {
 

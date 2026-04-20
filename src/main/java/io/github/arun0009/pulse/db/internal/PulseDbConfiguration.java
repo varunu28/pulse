@@ -1,5 +1,6 @@
 package io.github.arun0009.pulse.db.internal;
 
+import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
 import io.github.arun0009.pulse.autoconfigure.PulseRequestMatcherFactory;
 import io.github.arun0009.pulse.core.PulseRequestMatcher;
@@ -10,13 +11,13 @@ import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.Servlet;
 import org.hibernate.resource.jdbc.spi.StatementInspector;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.hibernate.autoconfigure.HibernatePropertiesCustomizer;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * Wires Pulse's database-observability subsystem when Hibernate ORM is on the classpath. When
@@ -41,7 +42,7 @@ import org.springframework.context.annotation.Configuration;
  * request boundary, like a Kafka listener) can just declare their own filter and the rest of
  * the wiring still works.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration(after = PulseAutoConfiguration.class)
 @ConditionalOnClass({StatementInspector.class, HibernatePropertiesCustomizer.class})
 @ConditionalOnProperty(prefix = "pulse.db", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class PulseDbConfiguration {

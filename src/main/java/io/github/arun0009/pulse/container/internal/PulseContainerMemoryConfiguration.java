@@ -1,16 +1,17 @@
 package io.github.arun0009.pulse.container.internal;
 
+import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
 import io.github.arun0009.pulse.container.CgroupMemoryReader;
 import io.github.arun0009.pulse.container.ContainerMemoryHealthIndicator;
 import io.github.arun0009.pulse.container.ContainerMemoryMetrics;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * Wires the container memory subsystem.
@@ -20,7 +21,7 @@ import org.springframework.context.annotation.Configuration;
  * platform-portable: the same starter runs on a developer Mac, a CI Linux runner without
  * cgroups, and a production EKS pod with cgroup v2.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration(after = PulseAutoConfiguration.class)
 @ConditionalOnProperty(prefix = "pulse.container-memory", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class PulseContainerMemoryConfiguration {
 

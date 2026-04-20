@@ -1,5 +1,6 @@
 package io.github.arun0009.pulse.propagation.internal;
 
+import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
 import io.github.arun0009.pulse.propagation.HeaderPropagation;
 import io.github.arun0009.pulse.propagation.KafkaConsumerTimeLagMetrics;
@@ -12,6 +13,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -44,7 +46,7 @@ import java.util.Map;
  * <p>Bean methods live in an inner class so Spring does not introspect Kafka-typed return values
  * when {@code spring-kafka} is absent from the application classpath.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration(after = PulseAutoConfiguration.class)
 public class KafkaPropagationConfiguration {
 
     @Configuration(proxyBeanMethods = false)

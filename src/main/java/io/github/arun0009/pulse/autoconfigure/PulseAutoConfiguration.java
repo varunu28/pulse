@@ -1,17 +1,11 @@
 package io.github.arun0009.pulse.autoconfigure;
 
 import io.github.arun0009.pulse.actuator.PulseDiagnostics;
-import io.github.arun0009.pulse.async.internal.ExecutorConfiguration;
-import io.github.arun0009.pulse.cache.internal.PulseCaffeineConfiguration;
-import io.github.arun0009.pulse.container.internal.PulseContainerMemoryConfiguration;
-import io.github.arun0009.pulse.db.internal.PulseDbConfiguration;
-import io.github.arun0009.pulse.dependencies.internal.PulseDependenciesConfiguration;
 import io.github.arun0009.pulse.enforcement.PulseEnforcementMode;
 import io.github.arun0009.pulse.events.SpanEvents;
 import io.github.arun0009.pulse.fleet.ConfigHashGauge;
 import io.github.arun0009.pulse.fleet.ConfigHasher;
 import io.github.arun0009.pulse.guardrails.CardinalityFirewall;
-import io.github.arun0009.pulse.guardrails.internal.SamplingConfiguration;
 import io.github.arun0009.pulse.health.OtelExporterHealthIndicator;
 import io.github.arun0009.pulse.health.OtelExporterHealthRegistrar;
 import io.github.arun0009.pulse.jobs.InstrumentedTaskScheduler;
@@ -20,17 +14,6 @@ import io.github.arun0009.pulse.jobs.JobsHealthIndicator;
 import io.github.arun0009.pulse.metrics.BusinessMetrics;
 import io.github.arun0009.pulse.metrics.DeployInfoMetrics;
 import io.github.arun0009.pulse.metrics.HistogramMeterFilter;
-import io.github.arun0009.pulse.metrics.internal.CommonTagsConfiguration;
-import io.github.arun0009.pulse.openfeature.internal.PulseOpenFeatureConfiguration;
-import io.github.arun0009.pulse.priority.internal.PulsePriorityConfiguration;
-import io.github.arun0009.pulse.profiling.internal.PulseProfilingConfiguration;
-import io.github.arun0009.pulse.propagation.internal.KafkaPropagationConfiguration;
-import io.github.arun0009.pulse.propagation.internal.OkHttpPropagationConfiguration;
-import io.github.arun0009.pulse.propagation.internal.RestClientPropagationConfiguration;
-import io.github.arun0009.pulse.propagation.internal.RestTemplatePropagationConfiguration;
-import io.github.arun0009.pulse.propagation.internal.WebClientPropagationConfiguration;
-import io.github.arun0009.pulse.resilience.internal.PulseResilience4jConfiguration;
-import io.github.arun0009.pulse.resilience.internal.PulseRetryAmplificationConfiguration;
 import io.github.arun0009.pulse.scheduling.ContextPropagatingTaskScheduler;
 import io.github.arun0009.pulse.scheduling.PulseSchedulingConfigurer;
 import io.github.arun0009.pulse.shutdown.InflightRequestCounter;
@@ -39,7 +22,6 @@ import io.github.arun0009.pulse.shutdown.PulseOtelShutdownLifecycle;
 import io.github.arun0009.pulse.slo.SloProjector;
 import io.github.arun0009.pulse.slo.SloRuleGenerator;
 import io.github.arun0009.pulse.startup.PulseStartupBanner;
-import io.github.arun0009.pulse.tenant.internal.PulseTenantConfiguration;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
@@ -55,28 +37,31 @@ import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.boot.info.GitProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.ImportRuntimeHints;
 import org.springframework.core.env.Environment;
 
 /**
- * Single, opinionated entry point that wires every Pulse subsystem.
+ * Root Pulse auto-configuration.
  *
- * <p>Sub-configurations live in their own classes so they can be conditionally loaded
- * (RestTemplate, WebClient, OkHttp, Kafka, web vs. non-web, etc.) based on what is on the
- * classpath and which kind of Spring application is starting up. Everything is gated behind
- * {@code pulse.*} properties so an application can opt out of any individual piece.
+ * <p>This class is intentionally thin: it registers {@link PulseProperties}, the global
+ * {@link PulseEnforcementMode}, and a small set of cross-cutting beans that every other
+ * Pulse auto-config depends on (diagnostics, common metrics, cardinality firewall, startup
+ * banner, job registry, shutdown lifecycles, OTel-exporter health). Each feature subsystem
+ * ships its own dedicated {@link AutoConfiguration @AutoConfiguration} class under
+ * {@code io.github.arun0009.pulse.<feature>.internal} and is listed independently in
+ * {@code META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports}
+ * so each feature shows up as its own entry in {@code /actuator/conditions}.
  *
  * <p>Web-specific beans (servlet filters, controller advices, actuator endpoints) live in
  * {@link PulseWebAutoConfiguration} so non-web worker apps still benefit from Pulse's
- * cardinality firewall, MDC propagation across {@code @Async}/{@code @Scheduled},
- * and Kafka propagation.
+ * cardinality firewall, MDC propagation across {@code @Async}/{@code @Scheduled}, and Kafka
+ * propagation without dragging in servlet API dependencies.
  *
- * <p>{@link AutoConfigureAfter} pins Pulse after Boot's metrics + OpenTelemetry auto-configs so
- * we observe the {@code MeterRegistry} and {@code OpenTelemetrySdk} they create. The web tier's
- * {@code PulseExceptionHandler} carries {@code @Order(Ordered.LOWEST_PRECEDENCE)} so it acts as
- * the application-wide default {@code @RestControllerAdvice} — any user-supplied advice with a
- * higher precedence still wins.
+ * <p>{@link AutoConfigureAfter} pins Pulse after Boot's metrics + OpenTelemetry auto-configs
+ * so we observe the {@code MeterRegistry} and {@code OpenTelemetrySdk} they create. Each
+ * feature auto-config in turn uses {@code @AutoConfiguration(after = PulseAutoConfiguration.class)}
+ * to pick up {@code PulseProperties} and {@code PulseEnforcementMode} without any ordering
+ * gymnastics in user code.
  */
 @AutoConfiguration
 @AutoConfigureAfter(
@@ -88,26 +73,6 @@ import org.springframework.core.env.Environment;
         })
 @EnableConfigurationProperties(PulseProperties.class)
 @ImportRuntimeHints(PulseRuntimeHints.class)
-@Import({
-    SamplingConfiguration.class,
-    CommonTagsConfiguration.class,
-    ExecutorConfiguration.class,
-    RestTemplatePropagationConfiguration.class,
-    RestClientPropagationConfiguration.class,
-    WebClientPropagationConfiguration.class,
-    OkHttpPropagationConfiguration.class,
-    KafkaPropagationConfiguration.class,
-    PulseDbConfiguration.class,
-    PulseResilience4jConfiguration.class,
-    PulseRetryAmplificationConfiguration.class,
-    PulseProfilingConfiguration.class,
-    PulseDependenciesConfiguration.class,
-    PulseTenantConfiguration.class,
-    PulsePriorityConfiguration.class,
-    PulseContainerMemoryConfiguration.class,
-    PulseOpenFeatureConfiguration.class,
-    PulseCaffeineConfiguration.class,
-})
 public class PulseAutoConfiguration {
 
     /**

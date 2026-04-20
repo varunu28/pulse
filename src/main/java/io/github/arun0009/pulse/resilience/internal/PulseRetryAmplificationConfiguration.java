@@ -1,9 +1,11 @@
 package io.github.arun0009.pulse.resilience.internal;
 
+import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
 import io.github.arun0009.pulse.resilience.RetryDepthFilter;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.Filter;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -24,7 +26,7 @@ import org.springframework.context.annotation.Configuration;
  * <p>Disabling {@code pulse.retry.enabled} silences the inbound filter <em>and</em> drops the
  * header from outbound propagation in one switch.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration(after = PulseAutoConfiguration.class)
 @ConditionalOnProperty(prefix = "pulse.retry", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class PulseRetryAmplificationConfiguration {
 

@@ -1,11 +1,13 @@
 package io.github.arun0009.pulse.cache.internal;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -13,7 +15,6 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.caffeine.CaffeineCache;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * Auto-binds every {@link CaffeineCacheManager} bean to Micrometer so {@code cache.gets},
@@ -31,7 +32,7 @@ import org.springframework.context.annotation.Configuration;
  *
  * <p>Opt out via {@code pulse.cache.caffeine.enabled=false}.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration(after = PulseAutoConfiguration.class)
 @ConditionalOnClass({CaffeineCacheManager.class, Caffeine.class})
 @ConditionalOnProperty(prefix = "pulse.cache.caffeine", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class PulseCaffeineConfiguration {

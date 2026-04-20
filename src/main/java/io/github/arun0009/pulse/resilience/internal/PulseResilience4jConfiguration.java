@@ -1,5 +1,6 @@
 package io.github.arun0009.pulse.resilience.internal;
 
+import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.resilience.BulkheadObservation;
 import io.github.arun0009.pulse.resilience.CircuitBreakerObservation;
 import io.github.arun0009.pulse.resilience.RetryObservation;
@@ -7,12 +8,12 @@ import io.github.resilience4j.bulkhead.BulkheadRegistry;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.retry.RetryRegistry;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * Wires Pulse's Resilience4j observation beans when the corresponding registries are present.
@@ -28,7 +29,7 @@ import org.springframework.context.annotation.Configuration;
  * Resilience4j's own Spring Boot starter or hand-rolled — is observed without ordering
  * gymnastics in the consumer's configuration.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration(after = PulseAutoConfiguration.class)
 @ConditionalOnClass(CircuitBreakerRegistry.class)
 @ConditionalOnProperty(prefix = "pulse.resilience", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class PulseResilience4jConfiguration {

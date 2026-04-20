@@ -1,5 +1,6 @@
 package io.github.arun0009.pulse.profiling.internal;
 
+import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
 import io.github.arun0009.pulse.profiling.ProfilingRegistration;
 import io.github.arun0009.pulse.profiling.PulseProfilingSpanProcessor;
@@ -9,12 +10,12 @@ import io.opentelemetry.sdk.trace.SpanProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * Wires Pulse's profiling-correlation subsystem.
@@ -37,7 +38,7 @@ import org.springframework.context.annotation.Configuration;
  * <p>The span processor is registered onto the running {@link OpenTelemetrySdk} via Spring
  * Boot's standard SDK auto-config — see {@code registerWithSdk} below.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration(after = PulseAutoConfiguration.class)
 @ConditionalOnClass(OpenTelemetrySdk.class)
 @ConditionalOnProperty(prefix = "pulse.profiling", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class PulseProfilingConfiguration {

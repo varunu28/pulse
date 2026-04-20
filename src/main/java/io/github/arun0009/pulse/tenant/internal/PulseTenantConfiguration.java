@@ -1,5 +1,6 @@
 package io.github.arun0009.pulse.tenant.internal;
 
+import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
 import io.github.arun0009.pulse.tenant.HeaderTenantExtractor;
 import io.github.arun0009.pulse.tenant.JwtClaimTenantExtractor;
@@ -14,6 +15,7 @@ import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.observation.ObservationRegistry;
 import jakarta.servlet.Filter;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -36,7 +38,7 @@ import java.util.List;
  * the meters they want tagged in {@code pulse.tenant.tag-meters} — empty list = no tagging,
  * which keeps the default cardinality cost at zero.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration(after = PulseAutoConfiguration.class)
 @ConditionalOnProperty(prefix = "pulse.tenant", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class PulseTenantConfiguration {
 

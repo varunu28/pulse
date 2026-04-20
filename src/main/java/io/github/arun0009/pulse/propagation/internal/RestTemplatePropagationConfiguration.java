@@ -1,10 +1,12 @@
 package io.github.arun0009.pulse.propagation.internal;
 
+import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
 import io.github.arun0009.pulse.guardrails.TimeoutBudgetOutboundInterceptor;
 import io.github.arun0009.pulse.propagation.HeaderPropagation;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.MDC;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.restclient.RestTemplateCustomizer;
@@ -24,7 +26,7 @@ import java.util.Map;
  * (and triggering {@link NoClassDefFoundError}) when {@code spring-boot-restclient} is not on the
  * application's classpath.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration(after = PulseAutoConfiguration.class)
 public class RestTemplatePropagationConfiguration {
 
     @Configuration(proxyBeanMethods = false)

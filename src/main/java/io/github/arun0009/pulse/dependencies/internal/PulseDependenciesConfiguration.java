@@ -1,5 +1,6 @@
 package io.github.arun0009.pulse.dependencies.internal;
 
+import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
 import io.github.arun0009.pulse.autoconfigure.PulseRequestMatcherFactory;
 import io.github.arun0009.pulse.core.PulseRequestMatcher;
@@ -15,6 +16,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import okhttp3.OkHttpClient;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -41,7 +43,7 @@ import org.springframework.web.reactive.function.client.WebClient;
  * {@code @ConditionalOnClass} so Spring does not introspect a bean factory method whose return
  * type would trigger {@code NoClassDefFoundError}.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration(after = PulseAutoConfiguration.class)
 @ConditionalOnProperty(prefix = "pulse.dependencies", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class PulseDependenciesConfiguration {
 

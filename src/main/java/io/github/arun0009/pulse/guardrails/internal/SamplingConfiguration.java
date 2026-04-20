@@ -1,12 +1,13 @@
 package io.github.arun0009.pulse.guardrails.internal;
 
+import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
 import io.github.arun0009.pulse.guardrails.PreferErrorSampler;
 import io.opentelemetry.sdk.trace.samplers.Sampler;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * Enforces a {@code ParentBased(TraceIdRatioBased)} sampler so that:
@@ -24,7 +25,7 @@ import org.springframework.context.annotation.Configuration;
  * service overriding the parent decision and producing unjoinable spans. Pulse defaults to the
  * correct behavior.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration(after = PulseAutoConfiguration.class)
 @ConditionalOnClass(Sampler.class)
 public class SamplingConfiguration {
 

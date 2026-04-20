@@ -1,10 +1,12 @@
 package io.github.arun0009.pulse.propagation.internal;
 
+import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
 import io.github.arun0009.pulse.guardrails.TimeoutBudgetOutboundInterceptor;
 import io.github.arun0009.pulse.propagation.HeaderPropagation;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.MDC;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.restclient.RestClientCustomizer;
@@ -23,7 +25,7 @@ import java.util.Map;
  * <p>Bean methods live in an inner class so Spring does not introspect their return type when
  * {@code spring-boot-restclient} is absent from the application classpath.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration(after = PulseAutoConfiguration.class)
 public class RestClientPropagationConfiguration {
 
     @Configuration(proxyBeanMethods = false)

@@ -1,11 +1,12 @@
 package io.github.arun0009.pulse.async.internal;
 
 import io.github.arun0009.pulse.async.PulseTaskDecorator;
+import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskDecorator;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
@@ -24,7 +25,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
  * {@link ThreadPoolTaskExecutor} with the decorator pre-applied. Most applications should leave
  * this off and let Boot manage the pool.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration(after = PulseAutoConfiguration.class)
 public class ExecutorConfiguration {
 
     /**

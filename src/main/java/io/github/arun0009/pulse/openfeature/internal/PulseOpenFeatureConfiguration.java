@@ -1,14 +1,15 @@
 package io.github.arun0009.pulse.openfeature.internal;
 
 import dev.openfeature.sdk.OpenFeatureAPI;
+import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.openfeature.PulseOpenFeatureMdcHook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * Auto-wires Pulse's OpenFeature integration when the {@code dev.openfeature:sdk} is on the
@@ -25,7 +26,7 @@ import org.springframework.context.annotation.Configuration;
  *
  * <p>Setting {@code pulse.open-feature.enabled=false} suppresses both registrations.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration(after = PulseAutoConfiguration.class)
 @ConditionalOnClass(OpenFeatureAPI.class)
 @ConditionalOnProperty(prefix = "pulse.open-feature", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class PulseOpenFeatureConfiguration {

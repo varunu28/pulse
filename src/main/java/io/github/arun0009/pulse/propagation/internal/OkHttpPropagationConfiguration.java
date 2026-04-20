@@ -1,5 +1,6 @@
 package io.github.arun0009.pulse.propagation.internal;
 
+import io.github.arun0009.pulse.autoconfigure.PulseAutoConfiguration;
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
 import io.github.arun0009.pulse.guardrails.TimeoutBudgetOutbound;
 import io.github.arun0009.pulse.propagation.HeaderPropagation;
@@ -11,6 +12,7 @@ import okhttp3.Response;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,7 +28,7 @@ import java.util.Map;
  * <p>Bean methods live in an inner class so Spring does not introspect their return type when
  * okhttp is absent from the application classpath.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration(after = PulseAutoConfiguration.class)
 public class OkHttpPropagationConfiguration {
 
     @Configuration(proxyBeanMethods = false)
