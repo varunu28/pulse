@@ -1,18 +1,24 @@
 package io.github.arun0009.pulse.events;
 
 import io.github.arun0009.pulse.autoconfigure.PulseProperties;
+import io.micrometer.common.KeyValues;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -43,10 +49,30 @@ public final class SpanEvents {
 
     private final MeterRegistry registry;
     private final PulseProperties.WideEvents config;
+    private final ObservationRegistry observationRegistry;
 
+    /**
+     * Backwards-compatible constructor — the Observation seam is created in NOOP mode, which means
+     * no handlers fire and zero overhead. Equivalent to pre-1.1 behaviour.
+     */
     public SpanEvents(MeterRegistry registry, PulseProperties.WideEvents config) {
+        this(registry, config, ObservationRegistry.NOOP);
+    }
+
+    /**
+     * @param observationRegistry the application's {@link ObservationRegistry} (Spring Boot 3+
+     *     auto-configures one). When non-NOOP, every {@link #emit(String, Map)} also opens and
+     *     closes a low-cardinality {@code pulse.event} observation tagged with the event name —
+     *     so any registered {@code ObservationHandler} (Boot's micrometer-tracing,
+     *     custom audit handlers, OpenTelemetry's {@code OtelObservationHandler}) participates.
+     *     This is purely additive: the existing counter, span event, and log line still fire
+     *     regardless of the registry.
+     */
+    public SpanEvents(
+            MeterRegistry registry, PulseProperties.WideEvents config, ObservationRegistry observationRegistry) {
         this.registry = registry;
         this.config = config;
+        this.observationRegistry = observationRegistry == null ? ObservationRegistry.NOOP : observationRegistry;
     }
 
     /** Emits an event with no attributes — increments the counter and emits a log line. */
@@ -63,6 +89,8 @@ public final class SpanEvents {
      */
     public void emit(String name, Map<String, ?> attributes) {
         if (!config.enabled()) return;
+
+        Observation observation = startObservation(name, attributes);
 
         if (config.counterEnabled()) {
             try {
@@ -92,6 +120,59 @@ public final class SpanEvents {
                 stashed.keySet().forEach(MDC::remove);
             }
         }
+
+        stopObservation(observation);
+    }
+
+    /**
+     * Starts a low-cardinality {@link Observation} so any {@code ObservationHandler} the
+     * application has registered (e.g., Boot's micrometer-tracing bridge, custom audit handlers)
+     * sees Pulse wide events as first-class observations.
+     *
+     * <p>Only the {@code event.name} key-value is added — high-cardinality attributes are
+     * deliberately kept off the observation to protect downstream metrics, mirroring the same
+     * cardinality discipline as the wide-event counter.
+     */
+    private @Nullable Observation startObservation(String name, Map<String, ?> attributes) {
+        if (observationRegistry.isNoop()) return null;
+        try {
+            Observation observation = Observation.createNotStarted("pulse.event", observationRegistry)
+                    .lowCardinalityKeyValue("event.name", name);
+            // Attach high-cardinality attributes only to the observation context (not as
+            // KeyValues) so existing meter handlers don't explode cardinality. Custom
+            // ObservationHandlers can inspect them via the context.
+            if (!attributes.isEmpty()) {
+                observation.contextualName(name);
+                attributes.forEach((k, v) -> {
+                    if (v != null) {
+                        observation.highCardinalityKeyValue(k, String.valueOf(v));
+                    }
+                });
+            }
+            return observation.start();
+        } catch (Exception e) {
+            log.debug("Pulse: failed to start observation for '{}': {}", name, e.getMessage());
+            return null;
+        }
+    }
+
+    private void stopObservation(@Nullable Observation observation) {
+        if (observation == null) return;
+        try {
+            observation.stop();
+        } catch (Exception e) {
+            log.debug("Pulse: failed to stop observation: {}", e.getMessage());
+        }
+    }
+
+    /** Convenience for callers that already build {@link KeyValues} elsewhere. */
+    public static KeyValues toKeyValues(Map<String, ?> attributes) {
+        if (attributes.isEmpty()) return KeyValues.empty();
+        List<io.micrometer.common.KeyValue> kvs = new ArrayList<>(attributes.size());
+        attributes.forEach((k, v) -> {
+            if (v != null) kvs.add(io.micrometer.common.KeyValue.of(k, String.valueOf(v)));
+        });
+        return KeyValues.of(kvs);
     }
 
     private static Attributes toAttributes(Map<String, ?> source) {
